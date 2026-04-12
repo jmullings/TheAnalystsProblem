@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Analyst's Problem • Formal Reduction</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@300;400;600&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            /* Cover Image Color Palette */
+            --void: #121418;
+            --slate: #1a1c22;
+            --gold: #ffc400;
+            --gold-glow: rgba(255, 196, 0, 0.6);
+            --silver: #e0e6ed;
+            --wave-light: rgba(220, 230, 240, 0.8);
+            --panel: rgba(18, 20, 24, 0.85);
+            --border: rgba(255, 196, 0, 0.2);
+            --serif: 'Cinzel', serif;
+            --mono: 'JetBrains Mono', monospace;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: var(--void);
+            font-family: var(--mono);
+            color: rgba(200, 210, 220, 0.85);
+            font-size: 10px;
+        }
+
+        #canvas {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+        }
+
+        #ui {
+            position: fixed;
+            inset: 0;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        #title {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 20px 24px 16px;
+            background: linear-gradient(180deg, rgba(18, 20, 24, 0.95) 50%, rgba(18, 20, 24, 0.6) 85%, transparent);
+            border-bottom: 1px solid var(--border);
+            text-align: center;
+            pointer-events: auto;
+            /* allow clicking links */
+        }
+
+        #title h1 {
+            font-family: var(--serif);
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: 4px;
+            color: #ffffff;
+            text-transform: uppercase;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+            margin-bottom: 4px;
+        }
+
+        #title .tagline {
+            font-family: var(--serif);
+            font-size: 11px;
+            font-style: italic;
+            color: var(--silver);
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+            opacity: 0.9;
+        }
+
+        #title .subtitle {
+            font-family: var(--serif);
+            font-size: 10px;
+            color: var(--gold);
+            letter-spacing: 2px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        #title .author {
+            font-size: 9px;
+            color: rgba(200, 210, 220, 0.6);
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+        }
+
+        #title .links {
+            font-size: 9.5px;
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+        }
+
+        #title .links a {
+            color: var(--gold);
+            text-decoration: none;
+            border: 1px solid rgba(255, 196, 0, 0.3);
+            padding: 4px 10px;
+            border-radius: 3px;
+            background: rgba(255, 196, 0, 0.05);
+            transition: all 0.2s ease;
+            letter-spacing: 0.5px;
+        }
+
+        #title .links a:hover {
+            background: rgba(255, 196, 0, 0.15);
+            border-color: var(--gold);
+            box-shadow: 0 0 12px rgba(255, 196, 0, 0.3);
+            color: #fff;
+        }
+
+        #hud {
+            position: absolute;
+            top: 135px;
+            left: 0;
+            width: 280px;
+            bottom: 0;
+            background: var(--panel);
+            border-right: 1px solid var(--border);
+            backdrop-filter: blur(12px);
+            pointer-events: auto;
+            overflow-y: auto;
+            scrollbar-width: none;
+        }
+
+        .hd {
+            font-family: var(--serif);
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            padding: 12px 16px 10px;
+            border-bottom: 1px solid rgba(255, 196, 0, 0.15);
+            background: rgba(255, 196, 0, 0.05);
+            color: var(--gold);
+        }
+
+        .hb {
+            padding: 12px 16px;
+        }
+
+        .row {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 6px;
+            font-size: 8px;
+            gap: 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            padding-bottom: 4px;
+        }
+
+        .k {
+            color: rgba(200, 210, 220, 0.6);
+            font-size: 8px;
+        }
+
+        .sep {
+            border: none;
+            border-top: 1px solid rgba(255, 196, 0, 0.15);
+            margin: 12px 0;
+        }
+
+        label {
+            display: block;
+            font-size: 7.5px;
+            color: rgba(200, 210, 220, 0.7);
+            margin: 12px 0 6px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        input[type=range] {
+            width: 100%;
+            height: 2px;
+            appearance: none;
+            background: rgba(255, 196, 0, 0.2);
+            border-radius: 1px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            appearance: none;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--gold);
+            cursor: pointer;
+            box-shadow: 0 0 8px var(--gold-glow);
+        }
+
+        .sv {
+            font-size: 9px;
+            color: var(--gold);
+            text-align: right;
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+
+        .badge {
+            display: block;
+            font-size: 8px;
+            padding: 6px 8px;
+            border-radius: 2px;
+            border: 1px solid var(--gold);
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            margin: 8px 0;
+            text-align: center;
+            background: rgba(255, 196, 0, 0.05);
+            color: var(--gold);
+            box-shadow: 0 0 10px rgba(255, 196, 0, 0.1);
+        }
+
+        #bot {
+            position: absolute;
+            bottom: 0;
+            left: 280px;
+            right: 0;
+            height: 90px;
+            background: rgba(18, 20, 24, 0.9);
+            border-top: 1px solid var(--border);
+            backdrop-filter: blur(10px);
+            padding: 12px 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .math-log {
+            font-size: 8.5px;
+            color: rgba(200, 210, 220, 0.8);
+            line-height: 1.6;
+            letter-spacing: 0.5px;
+        }
+
+        .math-log span {
+            color: var(--gold);
+            font-weight: 600;
+        }
+
+        .math-log span.w {
+            color: var(--silver);
+        }
+
+        /* 3D Space Labels for ln(n) */
+        .ln-label {
+            position: absolute;
+            font-family: var(--serif);
+            font-size: 13px;
+            color: var(--gold);
+            text-shadow: 0 0 8px rgba(255, 196, 0, 0.8);
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            letter-spacing: 1px;
+            opacity: 0.8;
+            transition: opacity 0.1s;
+        }
+    </style>
+</head>
+
+<body>
+
+    <canvas id="canvas"></canvas>
+
+    <!-- Overlay 3D Labels -->
+    <div id="labels-container"></div>
+
+    <div id="ui">
+        <div id="title">
+            <h1>The Analyst's Problem</h1>
+            <div class="tagline">"Chaos to Clarity within the Riemann Hypothesis Space"</div>
+            <div class="subtitle">VOLUME I • FORMAL REDUCTION</div>
+            <div class="author">by Jason Mullings BSC</div>
+            <div class="links">
+                <a href="https://github.com/jmullings/TheAnalystsProblem" target="_blank">GitHub Repo</a>
+                <a href="https://www.amazon.com/s?k=%22The+analyst%E2%80%99s+problem%22" target="_blank">Amazon
+                    E-Book</a>
+                <a href="https://www.patreon.com/posts/jason-mullings-155411204" target="_blank">Support on Patreon</a>
+            </div>
+        </div>
+
+        <div id="hud">
+            <div class="hd">Formal Reduction System</div>
+            <div class="hb">
+                <div class="badge" id="state-badge">DIRICHLET WAVE PACKET ⟳</div>
+
+                <div class="row"><span class="k">Phase (T₀):</span><span style="color:var(--gold)"
+                        id="val-T0">0.000</span></div>
+                <div class="row"><span class="k">Truncation (N):</span><span style="color:var(--silver)"
+                        id="val-N">8</span></div>
+                <div class="row"><span class="k">Crit. Line (σ):</span><span style="color:var(--silver)">1/2</span>
+                </div>
+
+                <hr class="sep" />
+
+                <label>Kernel Bandwidth (H)</label>
+                <input type="range" id="sl-H" min="1.0" max="8.0" step="0.1" value="3.5" />
+                <div class="sv" id="d-H">H = 3.5</div>
+
+                <label>Evolution Rate (dT₀)</label>
+                <input type="range" id="sl-speed" min="0.0" max="5.0" step="0.1" value="1.0" />
+                <div class="sv" id="d-speed">Speed = 1.0</div>
+
+                <label>Wave Amplitude</label>
+                <input type="range" id="sl-amp" min="0.5" max="4.0" step="0.1" value="2.0" />
+                <div class="sv" id="d-amp">Amp = 2.0</div>
+
+                <label>Grid Nodes (N)</label>
+                <input type="range" id="sl-N" min="2" max="15" step="1" value="8" />
+                <div class="sv" id="d-N">N = 8</div>
+
+                <hr class="sep" />
+                <div style="font-size:7.5px;color:rgba(200,210,220,0.5);line-height:1.8;text-align:justify">
+                    <strong>The Parseval Bridge:</strong><br>
+                    The integral of the continuous Dirichlet wave packet |D_N(T₀+t)|² against the Bochner-positive
+                    smoothing kernel k_H(t) = (6/H²)sech⁴(t/H) is exactly equal to the discrete Toeplitz quadratic form
+                    Q_H(x; T₀).<br><br>
+                    Vertical gold beams mark the exact logarithmic grid: <em>ln(2), ln(3), ln(4)...</em> where the
+                    physical vector x_n = 1/√n is evaluated.
+                </div>
+            </div>
+        </div>
+
+        <div id="bot">
+            <div class="math-log" id="log-1">Evaluating Toeplitz Form: <span>Q_H(x; T₀) = Σ x_m x_n e^{-iT₀(ln m - ln
+                    n)} k_H(ln m - ln n)</span></div>
+            <div class="math-log" id="log-2">Applying Bochner Kernel: <span class="w">g_H(t) = (6/H²) sech⁴(t/H)</span>
+            </div>
+            <div class="math-log" id="log-3">Detecting interference nodes across logarithmic intervals...</div>
+        </div>
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // THE ANALYST'S PROBLEM - WAVE FIELD SIMULATOR
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        // Constants & State
+        const State = {
+            H: 3.5,        // Kernel width
+            T0: 0.0,       // Phase / Time
+            speed: 1.0,    // Time evolution rate
+            amp: 2.0,      // Wave amplitude
+            N: 8,          // Truncation (number of log beams)
+            sigma: 0.5,    // Critical line exponent
+            scaleX: 25.0   // Spacing scale for log(n) on X axis
+        };
+
+        // Math Utilities
+        function sech(x) {
+            if (Math.abs(x) > 25) return 0;
+            return 1.0 / Math.cosh(x);
+        }
+        function sech4(x) {
+            const s = sech(x);
+            const s2 = s * s;
+            return s2 * s2; // sech^4 for Bochner positivity
+        }
+
+        // Setup Three.js
+        const canvas = document.getElementById('canvas');
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setClearColor(0x121418, 1);
+
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x121418, 0.004);
+
+        // Camera Setup
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        // Position camera to look down the logarithmic grid, slightly elevated
+        camera.position.set(-20, 20, 60);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.target.set(30, 0, 0); // Look at the center of the wave
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 0.3;
+
+        // Lighting
+        scene.add(new THREE.AmbientLight(0x202430, 1.5));
+        const glowLight = new THREE.PointLight(0xffc400, 50, 200);
+        glowLight.position.set(30, 10, 20);
+        scene.add(glowLight);
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // SCENE CONSTRUCTION
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        const WAVE_PARTICLES = 80000;
+        let waveGeo, waveMat, wavePoints;
+        let waveBaseX, waveBaseZ, wavePhases;
+
+        let gridGroup = new THREE.Group();
+        scene.add(gridGroup);
+
+        let labelsData = [];
+        const labelsContainer = document.getElementById('labels-container');
+
+        // Center line (Axis)
+        const axisMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.15 });
+        const axisGeo = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(-10, 0, 0),
+            new THREE.Vector3(100, 0, 0)
+        ]);
+        scene.add(new THREE.Line(axisGeo, axisMat));
+
+        // Node Glow Points
+        let nodeGeo, nodeMat, nodePoints;
+        let nodePositions;
+
+        function buildWaveSystem() {
+            // 1. Build the Continuous Probability Wave Field
+            if (wavePoints) scene.remove(wavePoints);
+
+            waveBaseX = new Float32Array(WAVE_PARTICLES);
+            waveBaseZ = new Float32Array(WAVE_PARTICLES);
+            wavePhases = new Float32Array(WAVE_PARTICLES);
+            const pos = new Float32Array(WAVE_PARTICLES * 3);
+            const col = new Float32Array(WAVE_PARTICLES * 3);
+
+            for (let i = 0; i < WAVE_PARTICLES; i++) {
+                // Distribute heavily around the main logarithmic range (x = 0 to 80)
+                const x = -5 + Math.pow(Math.random(), 0.8) * 90;
+
+                // Spread Z to form overlapping ribbons
+                const z = (Math.random() - 0.5) * 12.0 * Math.pow(Math.random(), 0.5);
+
+                waveBaseX[i] = x;
+                waveBaseZ[i] = z;
+                wavePhases[i] = Math.random() * Math.PI * 2; // Unique internal phase
+
+                pos[i * 3] = x;
+                pos[i * 3 + 1] = 0;
+                pos[i * 3 + 2] = z;
+
+                // Color gradient: Core silver/white, edges fade to dark slate
+                const distZ = Math.abs(z);
+                const mix = Math.max(0, 1.0 - distZ / 6.0);
+
+                // Silver/Wave light mix
+                col[i * 3] = 0.5 + 0.4 * mix; // R
+                col[i * 3 + 1] = 0.6 + 0.3 * mix; // G
+                col[i * 3 + 2] = 0.7 + 0.3 * mix; // B
+            }
+
+            waveGeo = new THREE.BufferGeometry();
+            waveGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            waveGeo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+
+            // Use Additive Blending for ethereal wave interference look
+            waveMat = new THREE.PointsMaterial({
+                size: 0.15, transparent: true, opacity: 0.6,
+                blending: THREE.AdditiveBlending, vertexColors: true, depthWrite: false
+            });
+
+            wavePoints = new THREE.Points(waveGeo, waveMat);
+            scene.add(wavePoints);
+        }
+
+        function rebuildGrid() {
+            // Clear old grid lines and nodes
+            while (gridGroup.children.length > 0) {
+                gridGroup.remove(gridGroup.children[0]);
+            }
+            labelsContainer.innerHTML = '';
+            labelsData = [];
+
+            if (nodePoints) scene.remove(nodePoints);
+
+            const nLines = State.N;
+            nodePositions = new Float32Array(nLines * 3);
+
+            const lineMat = new THREE.LineBasicMaterial({
+                color: 0xffc400, transparent: true, opacity: 0.4
+            });
+
+            // Create Logarithmic Beams starting from n=2
+            for (let n = 2; n <= nLines + 1; n++) {
+                const xPos = State.scaleX * Math.log(n);
+
+                // Vertical Line
+                const pts = [
+                    new THREE.Vector3(xPos, -20, 0),
+                    new THREE.Vector3(xPos, 20, 0)
+                ];
+                const geo = new THREE.BufferGeometry().setFromPoints(pts);
+                const line = new THREE.Line(geo, lineMat);
+                gridGroup.add(line);
+
+                // HTML Label - mathematically precise formulation
+                const el = document.createElement('div');
+                el.className = 'ln-label';
+                el.innerHTML = `ln(${n})`;
+
+                labelsContainer.appendChild(el);
+
+                labelsData.push({
+                    el: el,
+                    pos3D: new THREE.Vector3(xPos, -8, 0), // Position below the axis
+                    idx: n - 2
+                });
+
+                // Init Node positions
+                const idx = n - 2;
+                nodePositions[idx * 3] = xPos;
+                nodePositions[idx * 3 + 1] = 0;
+                nodePositions[idx * 3 + 2] = 0;
+            }
+
+            // Create Nodes (bright intersection points)
+            nodeGeo = new THREE.BufferGeometry();
+            nodeGeo.setAttribute('position', new THREE.BufferAttribute(nodePositions, 3));
+
+            // Create a custom glowing sprite texture programmatically
+            const size = 64;
+            const canvas2d = document.createElement('canvas');
+            canvas2d.width = size; canvas2d.height = size;
+            const ctx = canvas2d.getContext('2d');
+            const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+            gradient.addColorStop(0, 'rgba(255,255,255,1)');
+            gradient.addColorStop(0.2, 'rgba(255,200,0,0.8)');
+            gradient.addColorStop(1, 'rgba(255,150,0,0)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, size, size);
+            const texture = new THREE.CanvasTexture(canvas2d);
+
+            nodeMat = new THREE.PointsMaterial({
+                size: 4.0, transparent: true, opacity: 1.0,
+                map: texture, blending: THREE.AdditiveBlending, depthWrite: false
+            });
+
+            nodePoints = new THREE.Points(nodeGeo, nodeMat);
+            scene.add(nodePoints);
+        }
+
+        buildWaveSystem();
+        rebuildGrid();
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // UI BINDINGS
+        // ═══════════════════════════════════════════════════════════════════════════
+        function bind(id, textId, fmt, setter) {
+            const el = document.getElementById(id);
+            const txt = document.getElementById(textId);
+            if (!el) return;
+            el.addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                txt.textContent = fmt(val);
+                setter(val);
+            });
+        }
+
+        bind('sl-H', 'd-H', v => `H = ${v.toFixed(1)}`, v => State.H = v);
+        bind('sl-speed', 'd-speed', v => `Speed = ${v.toFixed(1)}`, v => State.speed = v);
+        bind('sl-amp', 'd-amp', v => `Amp = ${v.toFixed(1)}`, v => State.amp = v);
+        bind('sl-N', 'd-N', v => `N = ${v}`, v => {
+            State.N = v;
+            document.getElementById('val-N').textContent = v;
+            rebuildGrid();
+        });
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // WAVE KERNEL / MATH UPDATE
+        // ═══════════════════════════════════════════════════════════════════════════
+        // Computes the Y displacement of the wave based on the Dirichlet sum and Sech envelope
+        function calculateWaveY(x, z, phaseOffsets) {
+            // Smooth kernel envelope moving with T0 (representing the sliding window)
+            const windowCenter = 30.0 + Math.sin(State.T0 * 0.2) * 10.0;
+
+            // Using sech4 to mathematically mirror the Bochner-repaired kernel: 
+            // g_H(t) = (6/H^2) sech^4(t/H) (scaled visually)
+            const env = sech4((x - windowCenter) / (State.H * 1.5));
+
+            let amplitude = 0;
+
+            // Simulating |D_N(T0)|^2 interference pattern via sum of waves
+            for (let n = 1; n <= Math.min(State.N, 6); n++) {
+                const ln_n = Math.log(n);
+                // Magnitude decays as 1/sqrt(n) -> sigma = 0.5
+                const mag = Math.pow(n, -State.sigma);
+
+                // Frequency based on log(n), phase shifted by T0
+                const phase = x * 0.5 * ln_n - State.T0 * ln_n + phaseOffsets;
+
+                amplitude += mag * Math.cos(phase);
+            }
+
+            // Complex envelope modulation
+            const ribbonMod = Math.cos(z * 0.5 + State.T0);
+
+            return env * amplitude * State.amp * 3.0 * ribbonMod;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // ANIMATION LOOP
+        // ═══════════════════════════════════════════════════════════════════════════
+        const tempVec = new THREE.Vector3();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Advance Phase/Time
+            const dt = 0.016;
+            State.T0 += dt * State.speed;
+            document.getElementById('val-T0').textContent = State.T0.toFixed(3);
+
+            // 1. Update Continuous Wave
+            const positions = waveGeo.attributes.position.array;
+            for (let i = 0; i < WAVE_PARTICLES; i++) {
+                const x = waveBaseX[i];
+                const z = waveBaseZ[i];
+                const p = wavePhases[i];
+
+                // Get dynamic Y height
+                const y = calculateWaveY(x, z, p);
+
+                positions[i * 3 + 1] = y;
+            }
+            waveGeo.attributes.position.needsUpdate = true;
+
+            // 2. Update Intersection Nodes (Dots on the gold lines)
+            if (nodePoints) {
+                const nPos = nodeGeo.attributes.position.array;
+                for (let i = 0; i < State.N; i++) {
+                    const x = nPos[i * 3];
+                    // Find wave height at Z=0 for this X
+                    const y = calculateWaveY(x, 0, 0);
+                    // Smooth transition to target height
+                    nPos[i * 3 + 1] += (y - nPos[i * 3 + 1]) * 0.1;
+                }
+                nodeGeo.attributes.position.needsUpdate = true;
+            }
+
+            // 3. Update HTML Labels (Project 3D -> 2D)
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+
+            labelsData.forEach(item => {
+                tempVec.copy(item.pos3D);
+                // Modulate label Y slightly based on wave proximity
+                const targetY = -6 + Math.sin(State.T0 + item.idx) * 1.5;
+                tempVec.y = targetY;
+
+                tempVec.project(camera);
+
+                if (tempVec.z > 1) {
+                    item.el.style.opacity = 0; // Behind camera
+                } else {
+                    item.el.style.opacity = 0.9;
+                    const x = (tempVec.x * 0.5 + 0.5) * w;
+                    const y = (-(tempVec.y * 0.5) + 0.5) * h;
+                    item.el.style.left = `${x}px`;
+                    item.el.style.top = `${y}px`;
+                }
+            });
+
+            // Update Lights
+            glowLight.position.x = 30.0 + Math.cos(State.T0 * 0.5) * 10;
+            glowLight.intensity = 50 + Math.sin(State.T0 * 2.0) * 20;
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // Handle Resizing
+        window.addEventListener('resize', () => {
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+        });
+
+        // Start Loop
+        requestAnimationFrame(animate);
+
+    </script>
+</body>
+
+</html>
