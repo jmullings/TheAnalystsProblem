@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Analyst's Problem: Volume II</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=JetBrains+Mono:wght@400;600&family=Playfair+Display:ital,wght@0,700;1,400&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --void: #05070e;
+            --gold: #ffc400;
+            --gold-glow: rgba(255, 196, 0, 0.6);
+            --danger: #ff3333;
+            --danger-glow: rgba(255, 51, 51, 0.6);
+            --silver: #e0e6ed;
+            --panel: rgba(10, 11, 16, 0.85);
+            --border: rgba(255, 196, 0, 0.25);
+            --font-main: 'Outfit', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            --font-serif: 'Playfair Display', serif;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: var(--void);
+            color: var(--silver);
+            font-family: var(--font-main);
+            font-size: 12px;
+        }
+
+        #canvas {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+        }
+
+        #ui {
+            position: fixed;
+            inset: 0;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- HEADER --- */
+        #header {
+            padding: 20px 30px;
+            background: linear-gradient(180deg, rgba(5, 7, 14, 0.95) 20%, transparent);
+            border-bottom: 1px solid var(--border);
+            text-align: center;
+            pointer-events: auto;
+        }
+
+        #header h1 {
+            font-family: var(--font-serif);
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: 3px;
+            color: var(--gold);
+            text-shadow: 0 0 20px var(--gold-glow);
+            margin-bottom: 5px;
+        }
+
+        #header .subtitle {
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 4px;
+            color: var(--silver);
+            text-transform: uppercase;
+        }
+
+        #header .subsubtitle {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: rgba(200, 210, 220, 0.6);
+            letter-spacing: 1px;
+            margin-top: 8px;
+        }
+
+        /* --- LAYOUT GRIDS --- */
+        .hud-container {
+            display: flex;
+            justify-content: space-between;
+            flex: 1;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            backdrop-filter: blur(15px);
+            pointer-events: auto;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            overflow-y: auto;
+            scrollbar-width: none;
+        }
+
+        .panel-left {
+            width: 340px;
+        }
+
+        .panel-right {
+            width: 380px;
+        }
+
+        .panel-header {
+            font-family: var(--font-serif);
+            font-size: 16px;
+            color: var(--gold);
+            padding: 15px 20px;
+            border-bottom: 1px solid rgba(255, 196, 0, 0.15);
+            background: rgba(255, 196, 0, 0.05);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            position: relative;
+        }
+
+        .panel-content {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        /* --- CONTROLS --- */
+        .control-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            color: #a0aab5;
+        }
+
+        .control-val {
+            font-family: var(--font-mono);
+            color: var(--gold);
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        input[type=range] {
+            width: 100%;
+            height: 3px;
+            appearance: none;
+            background: rgba(255, 196, 0, 0.2);
+            border-radius: 2px;
+            outline: none;
+            cursor: pointer;
+            margin-top: 5px;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--gold);
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--gold-glow);
+        }
+
+        .btn-stabilize {
+            padding: 12px;
+            background: linear-gradient(135deg, rgba(255, 196, 0, 0.1), rgba(255, 196, 0, 0.2));
+            border: 1px solid var(--gold);
+            color: var(--gold);
+            font-family: var(--font-serif);
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            text-shadow: 0 0 8px rgba(255, 196, 0, 0.4);
+        }
+
+        .btn-stabilize:hover {
+            background: var(--gold);
+            color: var(--void);
+            box-shadow: 0 0 20px var(--gold-glow);
+        }
+
+        /* --- STATUS BADGE --- */
+        .status-badge {
+            padding: 12px;
+            border-radius: 6px;
+            text-align: center;
+            font-weight: 700;
+            font-size: 12px;
+            letter-spacing: 1px;
+            border: 1px solid;
+            transition: all 0.3s;
+        }
+
+        .status-danger {
+            border-color: var(--danger);
+            color: var(--danger);
+            background: rgba(255, 51, 51, 0.08);
+            box-shadow: 0 0 15px rgba(255, 51, 51, 0.2);
+        }
+
+        .status-optimal {
+            border-color: var(--gold);
+            color: var(--gold);
+            background: rgba(255, 196, 0, 0.1);
+            box-shadow: 0 0 20px var(--gold-glow);
+        }
+
+        .status-waste {
+            border-color: #64c8ff;
+            color: #64c8ff;
+            background: rgba(100, 200, 255, 0.08);
+        }
+
+        /* --- STORY & MATH BOXES --- */
+        .info-box {
+            background: rgba(255, 255, 255, 0.03);
+            border-left: 3px solid var(--gold);
+            padding: 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            line-height: 1.5;
+            color: #b0bac5;
+        }
+
+        .info-box strong {
+            color: var(--silver);
+            font-size: 13px;
+        }
+
+        .math-text {
+            font-family: var(--font-mono);
+            color: var(--gold);
+            font-size: 11px;
+            margin-top: 5px;
+            display: block;
+        }
+
+        /* --- COMMERCIAL TABS --- */
+        .tab-container {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .tab {
+            padding: 6px 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 10px;
+            font-weight: 600;
+            color: #888;
+            transition: 0.2s;
+            flex: 1;
+            text-align: center;
+        }
+
+        .tab.active {
+            background: rgba(255, 196, 0, 0.15);
+            border-color: var(--gold);
+            color: var(--gold);
+        }
+
+        /* Sneaky Cash Icons */
+        .sneak {
+            opacity: 0.15;
+            transition: opacity 0.3s ease;
+            margin-left: 3px;
+            font-size: 10px;
+        }
+
+        .tab:hover .sneak,
+        .tab.active .sneak {
+            opacity: 0.9;
+        }
+
+        .comm-desc {
+            font-size: 11.5px;
+            line-height: 1.6;
+            color: #a0aab5;
+        }
+
+        .comm-desc span.hl {
+            color: var(--gold);
+            font-weight: 600;
+        }
+
+        .comm-desc span.err {
+            color: var(--danger);
+            font-weight: 600;
+        }
+
+        .mode-indicator {
+            margin-top: 15px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 6px;
+            font-family: var(--font-mono);
+            font-size: 10px;
+            color: var(--gold);
+            border-left: 2px solid var(--gold);
+        }
+
+        /* --- BOTTOM FOOTER --- */
+        #footer {
+            padding: 15px 30px;
+            background: rgba(5, 7, 14, 0.9);
+            border-top: 1px solid var(--border);
+            pointer-events: auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .math-equation {
+            font-family: var(--font-mono);
+            font-size: 13px;
+            color: var(--silver);
+        }
+
+        .math-equation span {
+            color: var(--gold);
+        }
+
+        .int-link {
+            color: var(--gold);
+            text-decoration: none;
+            border: 1px solid rgba(255, 196, 0, 0.3);
+            padding: 5px 10px;
+            border-radius: 4px;
+            background: rgba(255, 196, 0, 0.05);
+            font-family: var(--font-mono, monospace);
+            font-size: 9.5px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            flex: 1 1 auto;
+            text-align: center;
+        }
+
+        .int-link:hover {
+            background: rgba(255, 196, 0, 0.15);
+            border-color: var(--gold);
+            box-shadow: 0 0 10px rgba(255, 196, 0, 0.3);
+            color: #fff;
+        }
+
+        .sneak {
+            opacity: 0.15;
+            transition: opacity 0.3s ease;
+            margin-left: 3px;
+            font-size: 10px;
+        }
+
+        .tab:hover .sneak,
+        .tab.active .sneak {
+            opacity: 0.9;
+        }
+    </style>
+</head>
+
+<body>
+
+    <canvas id="canvas"></canvas>
+
+    <div id="ui">
+        <div id="header">
+            <h1>The Analyst's Problem: Volume II</h1>
+            <div class="subtitle">Stabilisation of Riemann Hypothesis Space</div>
+            <div class="subsubtitle">λ* = 4/H² & its Commercial application.</div>
+        </div>
+
+        <div class="hud-container">
+            <!-- LEFT PANEL: MATHEMATICS & CONTROLS -->
+            <div class="panel panel-left">
+                <div class="panel-header">The Big Discovery</div>
+                <div class="panel-content">
+
+                    <div class="info-box">
+                        <strong>The "Jelly Hill" Metaphor</strong><br>
+                        The mathematical space naturally bends. Some parts bend perfectly, but the edges dip below zero
+                        (unstable). We must add the <i>exact</i> amount of structural jelly (λ) to fix the dips without
+                        wasting material.
+                    </div>
+
+                    <div id="status-badge" class="status-badge status-danger">
+                        ❌ STILL DIPS (UNSTABLE)
+                    </div>
+
+                    <div>
+                        <div class="control-row">
+                            <span>Space Bandwidth (H)</span>
+                            <span class="control-val" id="val-H">2.00</span>
+                        </div>
+                        <input type="range" id="sl-H" min="1.0" max="4.0" step="0.1" value="2.0">
+                    </div>
+
+                    <div>
+                        <div class="control-row">
+                            <span>Added "Jelly" (λ)</span>
+                            <span class="control-val" id="val-lam">0.00</span>
+                        </div>
+                        <input type="range" id="sl-lam" min="0.0" max="2.0" step="0.01" value="0.0">
+                        <div style="text-align: right; font-size: 10px; color: #888; margin-top: 4px;">Target λ* = <span
+                                id="val-target">1.00</span></div>
+                    </div>
+
+                    <button class="btn-stabilize" id="btn-auto">✨ Find the Perfect Amount ✨</button>
+
+                    <div class="info-box" style="border-color: #64c8ff; background: rgba(100,200,255,0.05);">
+                        <strong>What happens at λ*?</strong><br>
+                        The messy math collapses into a beautiful, perfect shape:<br>
+                        <span class="math-text">k_H(t) = (6/H²)·sech⁴(t/H)</span><br>
+                        It is completely smooth, always positive, and mathematically perfect.
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT PANEL: COMMERCIAL APPLICATIONS -->
+            <!-- Add this CSS to your stylesheet to style the new links -->
+
+            <!-- RIGHT PANEL: COMMERCIAL APPLICATIONS -->
+            <div class="panel panel-right">
+                <div class="panel-header">
+                    Real-World Integration
+                    <!-- Sneaky Background Icon -->
+                    <span
+                        style="position: absolute; right: 20px; top: 12px; opacity: 0.05; font-size: 24px; pointer-events: none;">📈💰</span>
+                </div>
+                <div class="panel-content">
+                    <p style="font-size: 12px; color: var(--silver); margin-bottom: 5px;">Select an industry to see how
+                        this mathematical discovery translates into commercial software.</p>
+
+                    <div class="tab-container">
+                        <div class="tab active" data-target="riemann" data-mode="0">Pure Math</div>
+                        <div class="tab" data-target="finance" data-mode="1">Quant Finance <span class="sneak">💵</span>
+                        </div>
+                        <div class="tab" data-target="audio" data-mode="2">Audio DSP <span class="sneak">💳</span></div>
+                        <div class="tab" data-target="ai" data-mode="3">Machine Learning <span class="sneak">💎</span>
+                        </div>
+                    </div>
+
+                    <!-- Dynamic Content Boxes -->
+                    <div id="desc-riemann" class="comm-desc">
+                        <span class="hl">The Riemann Hypothesis Space:</span><br><br>
+                        If the space dips below zero (<span class="err">Red Zones</span>), the Toeplitz quadratic form
+                        breaks, and the Riemann zeros become unpredictable.<br><br>
+                        By applying the exact <b>λ*</b> correction, the matrix becomes <i>Positive Semi-Definite
+                            (PSD)</i>. The space is completely stabilised, paving the way to resolve the Analyst's
+                        Problem.
+                        <div class="mode-indicator">3D VIEW: Continuous Spatial Geometry (The Jelly Hill)</div>
+                    </div>
+
+                    <div id="desc-finance" class="comm-desc" style="display:none;">
+                        <span class="hl">Risk & Portfolio Management:</span><br><br>
+                        In algorithmic trading, covariance matrices generated from noisy market data often contain <span
+                            class="err">negative eigenvalues (Red Pillars)</span>.<br><br>
+                        If a quant optimizes a portfolio on this broken matrix, the algorithm predicts infinite
+                        arbitrage and crashes. Applying our <b>Minimal Coercive Regularisation (λ*)</b> provides the
+                        exact mathematical floor needed to stabilize the risk model without distorting the underlying
+                        financial data.
+                        <div class="mode-indicator">3D VIEW: Discrete Covariance Matrix Topology</div>
+                    </div>
+
+                    <div id="desc-audio" class="comm-desc" style="display:none;">
+                        <span class="hl">Logarithmic Audio Filtering:</span><br><br>
+                        Human hearing is logarithmic (octaves). When digital audio software forces linear filters onto
+                        logarithmic scales, it creates <span class="err">phase-ringing and distortion (Red
+                            Spikes)</span>.<br><br>
+                        Our beautiful <b>sech⁴ kernel</b> is derived specifically for the log-integer grid. It acts as a
+                        mathematically perfect, artifact-free anti-aliasing filter for high-end audio engineering
+                        plugins (VSTs).
+                        <div class="mode-indicator">3D VIEW: Real-time Signal Oscilloscope</div>
+                    </div>
+
+                    <div id="desc-ai" class="comm-desc" style="display:none;">
+                        <span class="hl">Support Vector Machines (SVMs):</span><br><br>
+                        AI models require "Kernels" to measure data similarity. If a kernel isn't globally positive, the
+                        AI's spatial geometry collapses (<span class="err">Red Wireframe</span>).<br><br>
+                        We have proven the <b>Mullings-Sech⁴ Kernel</b> is globally Bochner-positive. Because it decays
+                        exponentially, it creates a perfect boundary, vastly superior to standard Gaussian (RBF) kernels
+                        for processing heavy-tailed network data.
+                        <div class="mode-indicator">3D VIEW: SVM Classification Boundary Geometry</div>
+                    </div>
+
+                    <!-- PROGRAM LINKS (GitHub, YouTube, Amazon, Patreon) -->
+                    <div
+                        style="margin-top: 10px; padding-top: 15px; border-top: 1px solid rgba(255,196,0,0.15); display: flex; flex-wrap: wrap; gap: 8px;">
+                        <a href="https://github.com/jmullings/TheAnalystsProblem" target="_blank"
+                            class="int-link">GitHub</a>
+                        <a href="https://www.youtube.com/@TheAnalystsProblem" target="_blank"
+                            class="int-link">YouTube</a>
+                        <a href="https://www.amazon.com/s?k=%22The+analyst%E2%80%99s+problem%22" target="_blank"
+                            class="int-link">E-Book</a>
+                        <a href="https://www.patreon.com/posts/jason-mullings-155411204" target="_blank"
+                            class="int-link">Patreon</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="footer">
+            <div class="math-equation">
+                Raw Space: -w_H''(t) &nbsp;&nbsp;|&nbsp;&nbsp;
+                Stabilizer: <span id="foot-lam">+ 0.00</span> w_H(t)
+            </div>
+            <div class="math-equation">
+                Final Geometry: <span id="foot-result">Unstable Curvature</span>
+            </div>
+        </div>
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // ==========================================
+        // 1. MATHEMATICAL ENGINE
+        // ==========================================
+        const State = {
+            H: 2.0,
+            lambda: 0.0,
+            lambdaStar: 1.0,
+            animating: false,
+            time: 0,
+            activeMode: 0 // 0:RH, 1:Finance, 2:Audio, 3:AI
+        };
+
+        function sech(x) { return 1.0 / Math.cosh(x); }
+        function w_H(t) { return Math.pow(sech(t / State.H), 2); }
+        function neg_w_H_double_prime(t) {
+            const u = t / State.H;
+            const th = Math.tanh(u);
+            const s = sech(u);
+            return -((2.0 / (State.H * State.H)) * (s * s) * (3.0 * th * th - 1.0));
+        }
+        function k_lambda(t) {
+            return neg_w_H_double_prime(t) + State.lambda * w_H(t);
+        }
+
+        // ==========================================
+        // 2. UI CONTROLLERS
+        // ==========================================
+        const slH = document.getElementById('sl-H');
+        const slLam = document.getElementById('sl-lam');
+        const badge = document.getElementById('status-badge');
+        const footLam = document.getElementById('foot-lam');
+        const footResult = document.getElementById('foot-result');
+
+        function updateMath() {
+            State.lambdaStar = 4.0 / (State.H * State.H);
+            document.getElementById('val-target').textContent = State.lambdaStar.toFixed(3);
+            slLam.max = (State.lambdaStar * 2.5).toFixed(3);
+
+            document.getElementById('val-H').textContent = State.H.toFixed(2);
+            document.getElementById('val-lam').textContent = State.lambda.toFixed(3);
+            footLam.textContent = `+ ${State.lambda.toFixed(2)}`;
+
+            const ratio = State.lambda / State.lambdaStar;
+
+            if (ratio < 0.98) {
+                badge.className = 'status-badge status-danger';
+                badge.innerHTML = '❌ STILL DIPS (UNSTABLE)';
+                footResult.textContent = 'Indefinite / Broken Matrix';
+                footResult.style.color = 'var(--danger)';
+            } else if (ratio > 1.02) {
+                badge.className = 'status-badge status-waste';
+                badge.innerHTML = '🤷‍♂️ WASTEFUL (OVER-CORRECTED)';
+                footResult.textContent = 'Positive but Sub-Optimal';
+                footResult.style.color = '#64c8ff';
+            } else {
+                badge.className = 'status-badge status-optimal';
+                badge.innerHTML = '✅ PERFECT EVERYWHERE (STABILISED)';
+                footResult.textContent = `(6/${State.H.toFixed(1)}²) sech⁴(t/H)`;
+                footResult.style.color = 'var(--gold)';
+            }
+        }
+
+        slH.addEventListener('input', (e) => { State.H = parseFloat(e.target.value); State.animating = false; updateMath(); });
+        slLam.addEventListener('input', (e) => { State.lambda = parseFloat(e.target.value); State.animating = false; updateMath(); });
+
+        document.getElementById('btn-auto').addEventListener('click', () => { State.animating = true; });
+
+        // Tab Switching Logic
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.comm-desc').forEach(d => d.style.display = 'none');
+
+                const target = e.target;
+                target.classList.add('active');
+                document.getElementById('desc-' + target.getAttribute('data-target')).style.display = 'block';
+
+                State.activeMode = parseInt(target.getAttribute('data-mode'));
+                switchMode(State.activeMode);
+            });
+        });
+
+        // ==========================================
+        // 3. THREE.JS SCENE SETUP
+        // ==========================================
+        const canvas = document.getElementById('canvas');
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setClearColor(0x05070e, 1);
+
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x05070e, 0.015);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 20, 50);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true; controls.dampingFactor = 0.05;
+        controls.autoRotate = true; controls.autoRotateSpeed = 0.8;
+        controls.maxPolarAngle = Math.PI / 2; // Don't go below ground
+
+        // Lighting
+        scene.add(new THREE.AmbientLight(0x202430, 2.0));
+        const pointLight = new THREE.PointLight(0xffc400, 100, 100);
+        pointLight.position.set(0, 15, 0);
+        scene.add(pointLight);
+
+        // Cosmic Stars
+        const starGeo = new THREE.BufferGeometry();
+        const starPos = new Float32Array(1500 * 3);
+        for (let i = 0; i < 1500; i++) {
+            starPos[i * 3] = (Math.random() - 0.5) * 200;
+            starPos[i * 3 + 1] = (Math.random() - 0.5) * 100 + 20;
+            starPos[i * 3 + 2] = (Math.random() - 0.5) * 200;
+        }
+        starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+        const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.15, transparent: true, opacity: 0.5 });
+        scene.add(new THREE.Points(starGeo, starMat));
+
+        // Grid (Shared)
+        const gridHelper = new THREE.GridHelper(60, 30, 0xffc400, 0x334455);
+        gridHelper.material.opacity = 0.15; gridHelper.material.transparent = true; scene.add(gridHelper);
+
+        // --- GROUPS FOR EACH MODE ---
+        const grpRH = new THREE.Group(); scene.add(grpRH);
+        const grpFinance = new THREE.Group(); scene.add(grpFinance);
+        const grpAudio = new THREE.Group(); scene.add(grpAudio);
+        const grpML = new THREE.Group(); scene.add(grpML);
+
+        function switchMode(mode) {
+            grpRH.visible = (mode === 0);
+            grpFinance.visible = (mode === 1);
+            grpAudio.visible = (mode === 2);
+            grpML.visible = (mode === 3);
+
+            if (mode === 2) { camera.position.set(0, 10, 40); }
+            else { camera.position.set(0, 20, 50); }
+        }
+
+        // ---------------------------------------------------------
+        // MODE 0: RH (The Jelly Hill Particles)
+        // ---------------------------------------------------------
+        const HILL_SIZE = 120;
+        const HILL_EXTENT = 12.0;
+        const hillGeo = new THREE.BufferGeometry();
+        const hillPos = new Float32Array(HILL_SIZE * HILL_SIZE * 3);
+        const hillCol = new Float32Array(HILL_SIZE * HILL_SIZE * 3);
+        const hillR = new Float32Array(HILL_SIZE * HILL_SIZE);
+
+        let hIdx = 0;
+        for (let i = 0; i < HILL_SIZE; i++) {
+            for (let j = 0; j < HILL_SIZE; j++) {
+                const x = (i / (HILL_SIZE - 1)) * 2 - 1; const z = (j / (HILL_SIZE - 1)) * 2 - 1;
+                const r = Math.sqrt(x * x + z * z);
+                hillR[hIdx] = (r > 1.0) ? 999 : r * HILL_EXTENT;
+                hillPos[hIdx * 3] = x * HILL_EXTENT; hillPos[hIdx * 3 + 1] = 0; hillPos[hIdx * 3 + 2] = z * HILL_EXTENT;
+                hIdx++;
+            }
+        }
+        hillGeo.setAttribute('position', new THREE.BufferAttribute(hillPos, 3));
+        hillGeo.setAttribute('color', new THREE.BufferAttribute(hillCol, 3));
+
+        // Glow Texture
+        const texCanvas = document.createElement('canvas'); texCanvas.width = 32; texCanvas.height = 32;
+        const tCtx = texCanvas.getContext('2d');
+        const grad = tCtx.createRadialGradient(16, 16, 0, 16, 16, 16);
+        grad.addColorStop(0, 'rgba(255,255,255,1)'); grad.addColorStop(0.2, 'rgba(255,196,0,0.8)'); grad.addColorStop(1, 'rgba(0,0,0,0)');
+        tCtx.fillStyle = grad; tCtx.fillRect(0, 0, 32, 32);
+
+        const hillMat = new THREE.PointsMaterial({ size: 0.4, transparent: true, opacity: 0.85, map: new THREE.CanvasTexture(texCanvas), blending: THREE.AdditiveBlending, vertexColors: true, depthWrite: false });
+        grpRH.add(new THREE.Points(hillGeo, hillMat));
+
+        // ---------------------------------------------------------
+        // MODE 1: QUANT FINANCE (Covariance Matrix Pillars)
+        // ---------------------------------------------------------
+        const MATRIX_SIZE = 24;
+        const matrixDummy = new THREE.Object3D();
+        const boxGeo = new THREE.BoxGeometry(0.8, 1, 0.8);
+        boxGeo.translate(0, 0.5, 0); // Pivot at base
+        const boxMat = new THREE.MeshPhongMaterial({ color: 0xffffff });
+        const matrixMesh = new THREE.InstancedMesh(boxGeo, boxMat, MATRIX_SIZE * MATRIX_SIZE);
+        grpFinance.add(matrixMesh);
+
+        // ---------------------------------------------------------
+        // MODE 2: AUDIO DSP (Oscilloscope Waveform)
+        // ---------------------------------------------------------
+        const AUDIO_RES = 400;
+        const audioGeo = new THREE.BufferGeometry();
+        const audioPos = new Float32Array(AUDIO_RES * 3);
+        const audioCol = new Float32Array(AUDIO_RES * 3);
+        for (let i = 0; i < AUDIO_RES; i++) {
+            audioPos[i * 3] = (i / AUDIO_RES - 0.5) * 40.0;
+            audioPos[i * 3 + 1] = 0; audioPos[i * 3 + 2] = 0;
+        }
+        audioGeo.setAttribute('position', new THREE.BufferAttribute(audioPos, 3));
+        audioGeo.setAttribute('color', new THREE.BufferAttribute(audioCol, 3));
+        const audioMat = new THREE.LineBasicMaterial({ vertexColors: true, linewidth: 3 });
+        grpAudio.add(new THREE.Line(audioGeo, audioMat));
+
+        const audioMat2 = new THREE.LineBasicMaterial({ color: 0xffc400, transparent: true, opacity: 0.2 });
+        const ghostLine = new THREE.Line(audioGeo, audioMat2);
+        ghostLine.position.z = -0.5;
+        grpAudio.add(ghostLine);
+
+        // ---------------------------------------------------------
+        // MODE 3: MACHINE LEARNING (SVM Boundary Surface)
+        // ---------------------------------------------------------
+        const mlDataGeo = new THREE.BufferGeometry();
+        const mlDataPos = new Float32Array(300 * 3);
+        const mlDataCol = new Float32Array(300 * 3);
+        for (let i = 0; i < 300; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const r = (i < 100) ? Math.random() * 3 : 6 + Math.random() * 5;
+            mlDataPos[i * 3] = Math.cos(angle) * r;
+            mlDataPos[i * 3 + 1] = (Math.random() - 0.5) * 2;
+            mlDataPos[i * 3 + 2] = Math.sin(angle) * r;
+
+            if (i < 100) { mlDataCol[i * 3] = 0.2; mlDataCol[i * 3 + 1] = 0.6; mlDataCol[i * 3 + 2] = 1.0; }
+            else { mlDataCol[i * 3] = 1.0; mlDataCol[i * 3 + 1] = 0.7; mlDataCol[i * 3 + 2] = 0.0; }
+        }
+        mlDataGeo.setAttribute('position', new THREE.BufferAttribute(mlDataPos, 3));
+        mlDataGeo.setAttribute('color', new THREE.BufferAttribute(mlDataCol, 3));
+        const mlDataMat = new THREE.PointsMaterial({ size: 0.5, vertexColors: true, map: new THREE.CanvasTexture(texCanvas), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+        grpML.add(new THREE.Points(mlDataGeo, mlDataMat));
+
+        const svmGeo = new THREE.PlaneGeometry(24, 24, 30, 30);
+        svmGeo.rotateX(-Math.PI / 2);
+        const svmMat = new THREE.MeshBasicMaterial({ color: 0xffc400, wireframe: true, transparent: true, opacity: 0.4 });
+        const svmMesh = new THREE.Mesh(svmGeo, svmMat);
+        grpML.add(svmMesh);
+
+        // Initialize state
+        switchMode(0);
+
+        // ==========================================
+        // 4. MAIN ANIMATION LOOP
+        // ==========================================
+        const colorHighlight = new THREE.Color();
+        updateMath();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            State.time += 0.03;
+
+            // Auto-animate lambda
+            if (State.animating) {
+                const target = State.lambdaStar;
+                const diff = target - State.lambda;
+                if (Math.abs(diff) < 0.005) { State.lambda = target; State.animating = false; }
+                else { State.lambda += diff * 0.06; }
+                slLam.value = State.lambda;
+                updateMath();
+            }
+
+            const Y_SCALE = 18.0;
+
+            // --- ANIMATE MODE 0: RH JELLY HILL ---
+            if (State.activeMode === 0) {
+                const pos = hillGeo.attributes.position.array;
+                const col = hillGeo.attributes.color.array;
+                for (let i = 0; i < HILL_SIZE * HILL_SIZE; i++) {
+                    if (hillR[i] === 999) continue;
+                    const r = hillR[i];
+                    const targetY = k_lambda(r) * Y_SCALE * (1.0 + 0.05 * Math.sin(r * 2.0 - State.time));
+                    pos[i * 3 + 1] += (targetY - pos[i * 3 + 1]) * 0.15;
+                    const y = pos[i * 3 + 1];
+
+                    if (y < -0.1) {
+                        const intensity = Math.min(Math.abs(y) / 4.0, 1.0);
+                        col[i * 3] = 1.0; col[i * 3 + 1] = 0.1 * (1 - intensity); col[i * 3 + 2] = 0.1 * (1 - intensity);
+                    } else if (y < 0.5) {
+                        col[i * 3] = 0.7; col[i * 3 + 1] = 0.8; col[i * 3 + 2] = 0.9;
+                    } else {
+                        const norm = Math.min(y / (Y_SCALE * 1.5), 1.0);
+                        col[i * 3] = 1.0; col[i * 3 + 1] = 0.7 + 0.3 * norm; col[i * 3 + 2] = 1.0 * norm;
+                    }
+                }
+                hillGeo.attributes.position.needsUpdate = true;
+                hillGeo.attributes.color.needsUpdate = true;
+            }
+
+            // --- ANIMATE MODE 1: FINANCE MATRIX ---
+            if (State.activeMode === 1) {
+                let mIdx = 0;
+                const spacing = 1.2;
+                const offset = (MATRIX_SIZE * spacing) / 2 - (spacing / 2);
+                for (let i = 0; i < MATRIX_SIZE; i++) {
+                    for (let j = 0; j < MATRIX_SIZE; j++) {
+                        const x = i * spacing - offset;
+                        const z = j * spacing - offset;
+                        const r = Math.sqrt(x * x + z * z) * 0.8;
+
+                        const noise = Math.sin(i * 13.1 + j * 9.7 + State.time) * 0.15;
+                        const targetY = (k_lambda(r) + noise) * Y_SCALE * 0.8;
+
+                        matrixDummy.position.set(x, Math.min(targetY, 0), z);
+                        matrixDummy.scale.set(1, Math.abs(targetY) + 0.1, 1);
+
+                        if (targetY < 0) matrixDummy.rotation.x = Math.PI;
+                        else matrixDummy.rotation.x = 0;
+
+                        matrixDummy.updateMatrix();
+                        matrixMesh.setMatrixAt(mIdx, matrixDummy.matrix);
+
+                        if (targetY < -0.1) colorHighlight.setRGB(1.0, 0.1, 0.1);
+                        else if (targetY < 0.5) colorHighlight.setRGB(0.5, 0.6, 0.7);
+                        else colorHighlight.setRGB(1.0, 0.8, 0.2);
+                        matrixMesh.setColorAt(mIdx, colorHighlight);
+
+                        mIdx++;
+                    }
+                }
+                matrixMesh.instanceMatrix.needsUpdate = true;
+                matrixMesh.instanceColor.needsUpdate = true;
+            }
+
+            // --- ANIMATE MODE 2: AUDIO DSP ---
+            if (State.activeMode === 2) {
+                const pos = audioGeo.attributes.position.array;
+                const col = audioGeo.attributes.color.array;
+
+                for (let i = 0; i < AUDIO_RES; i++) {
+                    const x = pos[i * 3];
+                    const rawSignal = Math.sin(x * 2.0 - State.time * 3) * 5.0 + Math.cos(x * 8.0 + State.time * 5) * 3.0;
+
+                    const filterEnv = k_lambda(Math.abs(x) * 0.3);
+                    const distortion = (State.lambdaStar - State.lambda) > 0 ? (State.lambdaStar - State.lambda) * 5.0 * Math.random() : 0;
+
+                    const targetY = (rawSignal * filterEnv * 2.0) + (Math.sin(x * 50) * distortion);
+                    pos[i * 3 + 1] += (targetY - pos[i * 3 + 1]) * 0.3;
+
+                    if (Math.abs(distortion) > 0.5 && Math.random() > 0.5) {
+                        col[i * 3] = 1.0; col[i * 3 + 1] = 0.1; col[i * 3 + 2] = 0.1;
+                    } else {
+                        col[i * 3] = 1.0; col[i * 3 + 1] = 0.8; col[i * 3 + 2] = 0.2;
+                    }
+                }
+                audioGeo.attributes.position.needsUpdate = true;
+                audioGeo.attributes.color.needsUpdate = true;
+            }
+
+            // --- ANIMATE MODE 3: MACHINE LEARNING SVM ---
+            if (State.activeMode === 3) {
+                const pos = svmGeo.attributes.position.array;
+                for (let i = 0; i < pos.length; i += 3) {
+                    const x = pos[i], z = pos[i + 2];
+                    const r = Math.sqrt(x * x + z * z);
+
+                    let targetY = k_lambda(r * 0.8) * Y_SCALE;
+
+                    if (State.lambda < State.lambdaStar * 0.98) {
+                        targetY += Math.sin(x * 3 + State.time) * Math.cos(z * 3) * 2.0;
+                    }
+
+                    pos[i + 1] += (targetY - pos[i + 1]) * 0.1;
+                }
+                svmGeo.computeVertexNormals();
+                svmGeo.attributes.position.needsUpdate = true;
+
+                if (State.lambda < State.lambdaStar * 0.98) {
+                    svmMesh.material.color.setHex(0xff3333);
+                } else {
+                    svmMesh.material.color.setHex(0xffc400);
+                }
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+        });
+
+        animate();
+    </script>
+</body>
+
+</html>
