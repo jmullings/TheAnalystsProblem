@@ -23,7 +23,7 @@ import mpmath as mp
 import pytest
 
 # Inject the proof directory into sys.path
-PROOF_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'KERNAL_DECOMPOSITION_PROOF'))
+PROOF_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'VOLUME_II_KERNAL_DECOMPOSITION_PROOF'))
 sys.path.insert(0, PROOF_DIR)
 
 # Note: The application file was renamed to kernel_decomposition.py to match Python conventions

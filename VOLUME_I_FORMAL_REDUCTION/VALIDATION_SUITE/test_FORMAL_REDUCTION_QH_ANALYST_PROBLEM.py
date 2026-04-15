@@ -19,7 +19,7 @@ from pathlib import Path
 
 # Resolve path to import the target module
 try:
-    from FORMAL_REDUCTION.FORMAL_REDUCTION_PROOF.FORMAL_REDUCTION_QH_ANALYST_PROBLEM import (
+    from VOLUME_I_FORMAL_REDUCTION.VOLUME_I_FORMAL_REDUCTION_PROOF.VOLUME_I_FORMAL_REDUCTION import (
         sech, sech2, sech4, tanh,
         Lambda_H_tau, Lambda_H_dd_tau, w_H_time, g_H_sech4,
         k_H_time, k_H_hat,
@@ -35,7 +35,7 @@ try:
     )
 except ImportError:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
-    from FORMAL_REDUCTION.FORMAL_REDUCTION_PROOF.FORMAL_REDUCTION_QH_ANALYST_PROBLEM import (
+    from VOLUME_I_FORMAL_REDUCTION.VOLUME_I_FORMAL_REDUCTION_PROOF.VOLUME_I_FORMAL_REDUCTION import (
         sech, sech2, sech4, tanh,
         Lambda_H_tau, Lambda_H_dd_tau, w_H_time, g_H_sech4,
         k_H_time, k_H_hat,

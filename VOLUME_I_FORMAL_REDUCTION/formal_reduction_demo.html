@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Formal Reduction Demo – Parseval Bridge</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 20px;
+      max-width: 900px;
+    }
+    h1,h2,h3 {
+      font-weight: 600;
+    }
+    label {
+      display: inline-block;
+      width: 60px;
+    }
+    input {
+      width: 80px;
+      margin-right: 10px;
+    }
+    button {
+      padding: 6px 12px;
+      margin-top: 10px;
+      cursor: pointer;
+    }
+    .row {
+      margin-bottom: 6px;
+    }
+    pre {
+      background: #f5f5f5;
+      padding: 10px;
+      overflow-x: auto;
+      font-family: "SF Mono", Menlo, Consolas, monospace;
+      font-size: 12px;
+    }
+    .small {
+      font-size: 0.9em;
+      color: #555;
+    }
+    .result {
+      margin-top: 10px;
+      padding: 10px;
+      background: #f0f7ff;
+      border-radius: 4px;
+      border: 1px solid #c3daff;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Formal Reduction Demo – Parseval / Toeplitz Bridge</h1>
+
+<p class="small">
+This demo numerically verifies the <b>formal reduction</b>:
+the same object appears as (i) an integral against a positive kernel and
+(ii) an arithmetic Toeplitz quadratic form.<br>
+We compute both and compare.
+</p>
+
+<h2>Parameters</h2>
+
+<div class="row">
+  <label for="H">H</label>
+  <input id="H" type="number" value="3.0" step="0.1">
+  <span class="small">Bandwidth of kernel (H &gt; 0)</span>
+</div>
+
+<div class="row">
+  <label for="N">N</label>
+  <input id="N" type="number" value="10" step="1">
+  <span class="small">Truncation of Dirichlet polynomial</span>
+</div>
+
+<div class="row">
+  <label for="T0">T₀</label>
+  <input id="T0" type="number" value="14.135" step="0.001">
+  <span class="small">Height parameter</span>
+</div>
+
+<div class="row">
+  <label for="sigma">σ</label>
+  <input id="sigma" type="number" value="0.5" step="0.1">
+  <span class="small">Real part of exponent (typically 0.5)</span>
+</div>
+
+<div class="row">
+  <label for="grid">Grid</label>
+  <input id="grid" type="number" value="801" step="2">
+  <span class="small"># integration points (odd, Simpson)</span>
+</div>
+
+<div class="row">
+  <label for="range">Range</label>
+  <input id="range" type="number" value="10" step="1">
+  <span class="small">Integration window: [-range·H, range·H]</span>
+</div>
+
+<button id="runBtn">Compute F̃₂ (Integral vs Toeplitz)</button>
+
+<div id="output" class="result" style="display:none;"></div>
+
+<h2>Definitions (conceptual)</h2>
+<pre>
+D_N(T; σ) = Σ_{n=1}^N n^{-σ} e^{-i T log n}
+
+w_H(t) = sech²(t / H)
+g_{λ*}(t) = (6 / H²) sech⁴(t / H),  λ* = 4 / H²
+
+ŵ_H(ω) = π H² ω / sinh(π H ω / 2)
+ĝ_{λ*}(ω) = (ω² + λ*) ŵ_H(ω)
+
+Integral form (Bochner side):
+  F̃₂^{int}(T₀; H, N) = ∫ g_{λ*}(t) |D_N(T₀ + t)|² dt
+
+Toeplitz form (arithmetic side):
+  F̃₂^{toe}(T₀; H, N) =
+    Σ_{m,n=1}^N (mn)^{-σ} (m/n)^{-iT₀} ĝ_{λ*}(log m - log n)
+
+Parseval / convolution identity (formal reduction):
+  F̃₂^{int}(T₀;H,N) ≡ F̃₂^{toe}(T₀;H,N)
+</pre>
+
+<script>
+function sech(x) {
+  return 1 / Math.cosh(x);
+}
+
+function sech2(x) {
+  const c = Math.cosh(x);
+  return 1 / (c * c);
+}
+
+function sech4(x) {
+  const s2 = sech2(x);
+  return s2 * s2;
+}
+
+function w_H_time(t, H) {
+  return sech2(t / H);
+}
+
+function g_lambda_star(t, H) {
+  // g_{λ*}(t) = (6 / H²) sech⁴(t/H)
+  return (6.0 / (H * H)) * sech4(t / H);
+}
+
+function lambda_star(H) {
+  return 4.0 / (H * H);
+}
+
+// ŵ_H(ω) = π H² ω / sinh(π H ω / 2), ŵ_H(0)=2H
+function fourier_w_H(omega, H) {
+  const absw = Math.abs(omega);
+  if (absw < 1e-15) {
+    return 2.0 * H;
+  }
+  const arg = Math.PI * H * omega / 2.0;
+  if (Math.abs(arg) > 700) {
+    return 0.0; // avoid overflow; effectively 0
+  }
+  return (Math.PI * H * H * omega) / Math.sinh(arg);
+}
+
+// ĝ_{λ*}(ω) = (ω² + λ*) ŵ_H(ω)
+function g_hat_lambda_star(omega, H) {
+  const lam = lambda_star(H);
+  const wh = fourier_w_H(omega, H);
+  return (omega * omega + lam) * wh;
+}
+
+// Dirichlet polynomial D_N(T; σ)
+function D_N(T, N, sigma) {
+  let re = 0.0, im = 0.0;
+  for (let n = 1; n <= N; n++) {
+    const ln_n = Math.log(n);
+    const mag = Math.pow(n, -sigma);
+    const phase = -T * ln_n;
+    re += mag * Math.cos(phase);
+    im += mag * Math.sin(phase);
+  }
+  return {re, im};
+}
+
+// |z|²
+function abs2(z) {
+  return z.re * z.re + z.im * z.im;
+}
+
+// Simpson integration of f(t) on [a,b] with odd nPoints
+function simpsonIntegrate(f, a, b, nPoints) {
+  if (nPoints < 3) nPoints = 3;
+  if (nPoints % 2 === 0) nPoints += 1;
+  const h = (b - a) / (nPoints - 1);
+  let s = 0.0;
+  for (let k = 0; k < nPoints; k++) {
+    const t = a + k * h;
+    const w = (k === 0 || k === nPoints - 1) ? 1 : (k % 2 === 1 ? 4 : 2);
+    s += w * f(t);
+  }
+  return s * h / 3.0;
+}
+
+// Integral form F̃₂^{int}
+function F2_integral(T0, H, N, sigma, rangeH, nPoints) {
+  const a = -rangeH * H;
+  const b =  rangeH * H;
+  return simpsonIntegrate((t) => {
+    const g = g_lambda_star(t, H);
+    const D = D_N(T0 + t, N, sigma);
+    return g * abs2(D);
+  }, a, b, nPoints);
+}
+
+// Toeplitz form F̃₂^{toe}
+function F2_toeplitz(T0, H, N, sigma) {
+  let sumRe = 0.0;
+  let sumIm = 0.0;
+  for (let m = 1; m <= N; m++) {
+    const ln_m = Math.log(m);
+    const xm = Math.pow(m, -sigma);
+    for (let n = 1; n <= N; n++) {
+      const ln_n = Math.log(n);
+      const xn = Math.pow(n, -sigma);
+      const diff = ln_m - ln_n;      // ω = log(m) - log(n)
+      const ghat = g_hat_lambda_star(diff, H);
+      const phase = -T0 * diff;      // (m/n)^(-iT0) = e^{-i T0 (ln m - ln n)}
+      const cosph = Math.cos(phase);
+      const sinph = Math.sin(phase);
+      const coeff = xm * xn;
+      // coeff * ghat * e^{-i phase}
+      sumRe += coeff * ghat * cosph;
+      sumIm += coeff * ghat * (-sinph);
+    }
+  }
+  // By symmetry the imaginary part should be ~0
+  return sumRe;
+}
+
+function formatNumber(x) {
+  if (!isFinite(x)) return String(x);
+  const ax = Math.abs(x);
+  if (ax === 0) return "0";
+  if (ax < 1e-4 || ax > 1e5) {
+    return x.toExponential(6);
+  }
+  return x.toFixed(10);
+}
+
+document.getElementById('runBtn').addEventListener('click', () => {
+  const H = parseFloat(document.getElementById('H').value);
+  const N = parseInt(document.getElementById('N').value, 10);
+  const T0 = parseFloat(document.getElementById('T0').value);
+  const sigma = parseFloat(document.getElementById('sigma').value);
+  const grid = parseInt(document.getElementById('grid').value, 10);
+  const rangeH = parseFloat(document.getElementById('range').value);
+
+  const out = document.getElementById('output');
+  out.style.display = 'block';
+  out.textContent = 'Computing...';
+
+  // Slight delay so UI updates before heavy computation
+  setTimeout(() => {
+    const F2_int = F2_integral(T0, H, N, sigma, rangeH, grid);
+    const F2_toe = F2_toeplitz(T0, H, N, sigma);
+    const ref = Math.max(Math.abs(F2_int), Math.abs(F2_toe), 1.0);
+    const absDiff = Math.abs(F2_int - F2_toe);
+    const relErr = absDiff / ref;
+
+    out.innerHTML =
+      '<b>Results</b><br>' +
+      'H = ' + H + ', N = ' + N + ', T₀ = ' + T0 + ', σ = ' + sigma + '<br>' +
+      'Grid = ' + grid + ', Range = ±' + rangeH + '·H<br><br>' +
+      '<b>Integral form F̃₂^{int}:</b> ' + formatNumber(F2_int) + '<br>' +
+      '<b>Toeplitz form F̃₂^{toe}:</b> ' + formatNumber(F2_toe) + '<br>' +
+      '<b>|F̃₂^{int} − F̃₂^{toe}|:</b> ' + formatNumber(absDiff) + '<br>' +
+      '<b>Relative error:</b> ' + formatNumber(relErr) + '<br><br>' +
+      '<span class="small">' +
+      'As you increase N and the integration grid, the two values should agree up to ' +
+      'numerical quadrature error, illustrating the exact Parseval / convolution bridge ' +
+      '(formal reduction) at finite N.' +
+      '</span>';
+  }, 10);
+});
+</script>
+
+</body>
+</html>
