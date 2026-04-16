@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagonal Dominance — Volume III</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --void: #03040a;
+            --gold: #e8c547;
+            --golddim: rgba(232, 197, 71, 0.4);
+            --danger: #ff4757;
+            --safe: #2ed573;
+            --blue: #4fc3f7;
+            --nova: #b44fff;
+            --text: rgba(255, 255, 255, 0.88);
+            --muted: rgba(255, 255, 255, 0.42);
+            --panelbg: rgba(5, 7, 16, 0.88);
+            --border: rgba(232, 197, 71, 0.18);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+
+        body {
+            overflow: hidden;
+            background: var(--void);
+            font-family: 'Rajdhani', sans-serif;
+            color: var(--text);
+        }
+
+        canvas { display: block; position: fixed; inset: 0; z-index: 1; cursor: crosshair; }
+        #hud { position: fixed; inset: 0; z-index: 10; pointer-events: none; }
+
+        /* TOP BAR */
+        #topbar {
+            position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: stretch;
+            background: linear-gradient(180deg, rgba(3, 4, 10, .98) 0%, rgba(3, 4, 10, .7) 100%);
+            border-bottom: 1px solid var(--border); height: 56px;
+        }
+
+        #tb-left { display: flex; align-items: center; padding: 0 20px; gap: 16px; flex: 0 0 auto; }
+        #gtitle { font-size: 13px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--gold); }
+        #wlabel { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: var(--muted); letter-spacing: 2px; padding: 3px 8px; border: 1px solid var(--border); border-radius: 3px; }
+
+        /* STABILITY METER */
+        #stability-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; border-left: 1px solid var(--border); border-right: 1px solid var(--border); padding: 0 16px; position: relative; }
+        #stab-label { font-size: 9px; letter-spacing: 4px; text-transform: uppercase; color: var(--muted); margin-bottom: 3px; }
+        #stab-row { display: flex; align-items: center; gap: 12px; width: 100%; max-width: 340px; }
+        #qval { font-family: 'Share Tech Mono', monospace; font-size: 22px; font-weight: 600; line-height: 1; transition: color .3s; min-width: 68px; text-align: right; }
+        #stab-bar-bg { flex: 1; height: 6px; background: rgba(255, 255, 255, 0.07); border-radius: 3px; overflow: hidden; }
+        #stab-bar { height: 100%; border-radius: 3px; transition: width .14s, background .3s; }
+        #stab-tag { font-size: 9px; letter-spacing: 2px; color: var(--muted); min-width: 60px; }
+
+        #tb-right { display: flex; align-items: center; padding: 0 20px; gap: 12px; flex: 0 0 auto; }
+        #smain { font-family: 'Share Tech Mono', monospace; font-size: 20px; color: var(--gold); }
+        #snext { font-size: 10px; color: var(--muted); letter-spacing: 1px; margin-top: 1px; text-align: right; }
+
+        #layerwrap { position: absolute; top: 64px; left: 50%; transform: translateX(-50%); text-align: center; pointer-events: none; }
+        #layertxt { font-family: 'Share Tech Mono', monospace; font-size: 10px; color: var(--muted); letter-spacing: 2px; }
+        #pips { display: flex; gap: 5px; justify-content: center; margin-top: 5px; }
+        .pip { width: 9px; height: 9px; border-radius: 50%; border: 1px solid rgba(232, 197, 71, 0.4); transition: all .4s; }
+        .pip.on { background: var(--gold); box-shadow: 0 0 8px var(--golddim); }
+        .pip.off { background: rgba(255, 71, 87, 0.3); border-color: rgba(255, 71, 87, 0.4); }
+
+        .sp { position: absolute; top: 50%; transform: translateY(-50%); width: 190px; padding: 14px; background: var(--panelbg); border: 1px solid var(--border); border-radius: 10px; display: flex; flex-direction: column; gap: 10px; }
+        #lp { left: 16px; } #rp { right: 16px; }
+        .pt { font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); }
+        .sr { display: flex; justify-content: space-between; align-items: center; }
+        .sl { font-size: 11px; color: var(--muted); }
+        .sv { font-family: 'Share Tech Mono', monospace; font-size: 12px; }
+        .sv.g { color: var(--safe); } .sv.r { color: var(--danger); } .sv.y { color: var(--gold); }
+        .mb { height: 3px; background: rgba(255, 255, 255, 0.06); border-radius: 2px; overflow: hidden; margin-top: 3px; }
+        .mf { height: 100%; border-radius: 2px; transition: width .18s; }
+        .div { height: 1px; background: var(--border); }
+
+        #weapons { position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; pointer-events: auto; }
+        .ws { width: 66px; height: 66px; border-radius: 10px; border: 1px solid var(--border); background: var(--panelbg); display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all .2s; position: relative; gap: 2px; }
+        .ws:hover { border-color: var(--gold); background: rgba(232, 197, 71, 0.07); }
+        .ws.on { border-color: var(--gold); background: rgba(232, 197, 71, 0.12); box-shadow: 0 0 14px rgba(232, 197, 71, 0.2); }
+        .ws.cd { opacity: .4; }
+        .wi { font-size: 18px; } .wk { font-size: 9px; color: var(--muted); letter-spacing: .5px; }
+        .wc { position: absolute; top: 5px; right: 7px; font-family: 'Share Tech Mono', monospace; font-size: 10px; color: var(--gold); }
+
+        #phwrap { position: absolute; bottom: 102px; left: 50%; transform: translateX(-50%); width: 190px; display: flex; flex-direction: column; align-items: center; gap: 4px; pointer-events: none; opacity: 0; transition: opacity .2s; }
+        #phwrap.vis { opacity: 1; }
+        #phbg { width: 100%; height: 4px; background: rgba(255, 255, 255, 0.07); border-radius: 2px; overflow: hidden; }
+        #phfill { height: 100%; width: 0%; background: var(--blue); border-radius: 2px; transition: background-color 0.1s; }
+        #phlbl { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--blue); }
+
+        #keyhint { position: absolute; bottom: 32px; right: 20px; font-size: 10px; color: rgba(255, 255, 255, 0.18); letter-spacing: 1px; pointer-events: none; line-height: 1.8; }
+
+        /* NOVA STABILITY UI */
+        #nova-charge-wrap { position: absolute; bottom: 90px; right: 16px; width: 190px; padding: 10px; background: var(--panelbg); border: 1px solid var(--border); border-radius: 10px; pointer-events: none; }
+        #nova-lbl { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--nova); margin-bottom: 5px; }
+        #nova-bg { height: 4px; background: rgba(180, 79, 255, 0.12); border-radius: 2px; overflow: hidden; }
+        #nova-fill { height: 100%; width: 0%; background: var(--nova); border-radius: 2px; transition: width .2s; }
+        #nova-sub { font-size: 9px; color: var(--muted); margin-top: 5px; }
+
+        #wflash { position: absolute; top: 37%; left: 50%; transform: translate(-50%, -50%); font-family: 'Share Tech Mono', monospace; font-size: 26px; letter-spacing: 7px; color: var(--gold); text-shadow: 0 0 22px var(--golddim); pointer-events: none; opacity: 0; transition: opacity .4s; white-space: nowrap; }
+        #wflash.show { opacity: 1; }
+
+        #veil { position: absolute; inset: 0; background: rgba(255, 50, 50, 0); pointer-events: none; transition: background .25s; z-index: 20; }
+        #veil.warn { background: rgba(255, 50, 50, .07); }
+        #veil.crit { background: rgba(255, 50, 50, .2); animation: flic .35s infinite; }
+        @keyframes flic { 0%, 100% { background: rgba(255, 50, 50, .22); } 50% { background: rgba(255, 50, 50, .04); } }
+
+        #hearts { position: absolute; bottom: 32px; left: 22px; display: flex; gap: 6px; pointer-events: none; }
+        .heart { font-size: 18px; color: var(--safe); text-shadow: 0 0 8px var(--safe); transition: all .3s; }
+        .heart.lost { opacity: 0.15; filter: grayscale(1); color: var(--danger); text-shadow: none; }
+
+        .screen { position: absolute; inset: 0; z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(3, 4, 10, .92); backdrop-filter: blur(14px); pointer-events: none; opacity: 0; transition: opacity .5s; }
+        .screen.show { opacity: 1; pointer-events: auto; }
+        .sp2 { background: var(--panelbg); border: 1px solid var(--border); border-radius: 14px; padding: 34px; max-width: 680px; text-align: center; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 24px 60px rgba(0, 0, 0, .6); }
+        .st { font-family: 'Share Tech Mono', monospace; font-size: 32px; color: var(--gold); letter-spacing: 5px; text-shadow: 0 0 18px var(--golddim); }
+        .ss { font-size: 11px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: var(--blue); margin-bottom: 8px; }
+        .ib { background: rgba(255, 255, 255, .03); border-left: 3px solid var(--gold); padding: 14px; border-radius: 4px; font-size: 13px; line-height: 1.65; color: var(--text); text-align: left; }
+        .ib b { color: var(--gold); }
+        .ibr { display: block; margin-top: 6px; }
+
+        .btn { margin-top: 4px; padding: 14px 36px; border: 1px solid var(--gold); background: linear-gradient(135deg, rgba(232, 197, 71, .1), rgba(232, 197, 71, .2)); color: var(--gold); font-family: 'Rajdhani', sans-serif; font-size: 14px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; border-radius: 7px; transition: all .25s; }
+        .btn:hover { background: var(--gold); color: var(--void); box-shadow: 0 0 22px var(--golddim); transform: translateY(-2px); }
+
+        #etitle { font-size: 40px; font-weight: 700; letter-spacing: 4px; color: var(--danger); text-shadow: 0 0 15px rgba(255, 71, 87, 0.4); }
+        #esub { font-size: 12px; letter-spacing: 3px; color: var(--muted); text-transform: uppercase; }
+        #escore { font-family: 'Share Tech Mono', monospace; font-size: 20px; color: var(--gold); }
+        #foot { position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%); font-size: 9px; color: rgba(255, 255, 255, .12); letter-spacing: 1px; pointer-events: none; }
+    </style>
+</head>
+
+<body>
+    <canvas id="c"></canvas>
+    <div id="hud">
+
+        <!-- TOP BAR -->
+        <div id="topbar">
+            <div id="tb-left">
+                <div id="gtitle">Diagonal Dominance</div>
+                <div id="wlabel">WAVE 1</div>
+            </div>
+
+            <div id="stability-wrap">
+                <div id="stab-label">Q_H(T) — CORE STABILITY</div>
+                <div id="stab-row">
+                    <div id="qval" style="color:var(--safe)">+0.0</div>
+                    <div id="stab-bar-bg">
+                        <div id="stab-bar" style="background:var(--safe);width:80%"></div>
+                    </div>
+                    <div id="stab-tag">STABLE</div>
+                </div>
+            </div>
+
+            <div id="tb-right">
+                <div>
+                    <div id="smain">000000</div>
+                    <div id="snext">next peel: 10000</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="layerwrap">
+            <div id="layertxt">LAYERS ACTIVE: 5</div>
+            <div id="pips"></div>
+        </div>
+
+        <!-- LEFT PANEL -->
+        <div class="sp" id="lp">
+            <div class="pt">System State</div>
+            <div>
+                <div class="sr"><span class="sl">D_H (Diagonal)</span><span class="sv g" id="dhv">0.0</span></div>
+                <div class="mb">
+                    <div class="mf" id="dhb" style="background:var(--safe);width:0%"></div>
+                </div>
+            </div>
+            <div>
+                <div class="sr"><span class="sl">O_H (Interfere)</span><span class="sv r" id="ohv">0.0</span></div>
+                <div class="mb">
+                    <div class="mf" id="ohb" style="background:var(--danger);width:0%"></div>
+                </div>
+            </div>
+            <div class="div"></div>
+            <div class="sr"><span class="sl">Nodes alive</span><span class="sv y" id="nc">0</span></div>
+            <div class="sr"><span class="sl">Blobs destroyed</span><span class="sv g" id="hits">0</span></div>
+        </div>
+
+        <!-- RIGHT PANEL -->
+        <div class="sp" id="rp">
+            <div class="pt">Threat Intel</div>
+            <div class="sr"><span class="sl">Blobs active</span><span class="sv r" id="bc">0</span></div>
+            <div class="sr"><span class="sl">Kill streak</span><span class="sv y" id="str">0</span></div>
+            <div class="div"></div>
+            <div class="pt" style="margin-top:2px">Controls</div>
+            <div style="font-size:11px;color:var(--muted);line-height:1.9">
+                <b style="color:var(--text)">Mouse</b> — aim targeting laser<br>
+                <b style="color:var(--text)">Click / Space</b> — fire & scale radius<br>
+                <b style="color:var(--text)">Hold</b> — match laser color to phase θ<br>
+                <b style="color:var(--text)">Arrows</b> — rotate graph<br>
+                <b style="color:var(--text)">1 / 2 / 3</b> — swap weapon
+            </div>
+        </div>
+
+        <div id="weapons">
+            <div class="ws on" id="w0" data-w="0">
+                <div class="wi">⚡</div>
+                <div class="wk">1 · BOLT</div>
+                <div class="wc" id="wc0">∞</div>
+            </div>
+            <div class="ws" id="w1" data-w="1">
+                <div class="wi">🔵</div>
+                <div class="wk">2 · SIEVE</div>
+                <div class="wc" id="wc1">5</div>
+            </div>
+            <div class="ws" id="w2" data-w="2">
+                <div class="wi">💥</div>
+                <div class="wk">3 · NOVA</div>
+                <div class="wc" id="wc2">—</div>
+            </div>
+        </div>
+
+        <div id="phwrap">
+            <div id="phbg">
+                <div id="phfill"></div>
+            </div>
+            <div id="phlbl">Radius & Phase charging…</div>
+        </div>
+
+        <div id="keyhint">SPACE · FIRE<br>← → ↑ ↓ · ROTATE</div>
+
+        <!-- NOVA STABILITY CHARGE -->
+        <div id="nova-charge-wrap">
+            <div id="nova-lbl">NOVA STABILITY</div>
+            <div id="nova-bg"><div id="nova-fill"></div></div>
+            <div id="nova-sub">Stabilizing...</div>
+        </div>
+
+        <div id="hearts">
+            <div class="heart" id="h0">CORE INTEGRITY</div>
+        </div>
+
+        <div id="wflash">WAVE 1</div>
+        <div id="veil"></div>
+
+        <div id="startscreen" class="screen show">
+            <div class="sp2">
+                <div>
+                    <div class="st">The Analyst's Problem: Volume III</div>
+                    <div class="st">DIAGONAL DOMINANCE</div>
+                    <div class="ss"><br>Quadratic Form Decomposition & Dominance</div>
+                </div>
+                <div class="ib">
+                    <b>Mission:</b> Instability blobs spawn on the outer shell and travel inward toward the core.
+                    Destroy them before they breach. <b style="color:var(--danger)">SUDDEN DEATH: 1 Breach =
+                        Collapse.</b>
+                    <span class="ibr"><b>Aiming & Phase:</b> Use your mouse to aim the targeting laser. <b>Hold fire</b>
+                        to charge the radius multiplier and phase θ. Match the laser color to the blob's frequency for constructive hits (max damage).</span>
+                    <span class="ibr"><b style="color:var(--nova)">NOVA (Weapon 3):</b> Propagates dendrites from the core outward when the graph is highly stable. Applies a sech² projection operator that purifies or destroys based on phase alignment.</span>
+                    <span class="ibr"><b style="color:var(--danger)">Layer peeling:</b> Every 10,000 points the outer
+                        shell is stripped — blobs travel faster. Survive all 5 peels to prove Dominance.</span>
+                </div>
+                <button class="btn" id="startbtn">INITIALISE SYSTEM</button>
+                <div class="links-row">
+                    <a href="https://github.com/jmullings/TheAnalystsProblem" target="_blank"
+                        class="int-link" style="color:var(--muted);text-decoration:none;margin:0 10px;">GitHub</a>
+                    <a href="https://www.youtube.com/@TheAnalystsProblem" target="_blank" class="int-link" style="color:var(--muted);text-decoration:none;margin:0 10px;">YouTube</a>
+                    <a href="https://www.amazon.com/s?k=%22The+analyst%E2%80%99s+problem%22" target="_blank"
+                        class="int-link" style="color:var(--muted);text-decoration:none;margin:0 10px;">E-Book</a>
+                    <a href="https://www.patreon.com/posts/jason-mullings-155411204" target="_blank"
+                        class="int-link" style="color:var(--muted);text-decoration:none;margin:0 10px;">Patreon</a>
+                </div>
+            </div>
+        </div>
+
+        <div id="endscreen" class="screen">
+            <div class="sp2">
+                <div id="etitle">CORE DESTABILISED</div>
+                <div id="esub">Graph Integrity: 0%</div>
+                <div id="escore">Score: 000000</div>
+                <button class="btn" id="endbtn">RESTART SIMULATION</button>
+            </div>
+        </div>
+
+        <div id="foot">Diagonal Dominance · Volume III</div>
+    </div>
+
+    <!-- THREE.JS IMPORTS -->
+    <script type="importmap">
+    {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/"}}
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+        import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+        // ═══════════════════════════════════════════
+        //  AUDIO
+        // ═══════════════════════════════════════════
+        const Snd = {
+            ctx: null,
+            init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); if (this.ctx.state === 'suspended') this.ctx.resume(); },
+            _t(type, f0, f1, dur, vol = 0.07) {
+                if (!this.ctx) return;
+                const t = this.ctx.currentTime, o = this.ctx.createOscillator(), g = this.ctx.createGain();
+                o.type = type; o.frequency.setValueAtTime(f0, t);
+                if (f1) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+                o.connect(g); g.connect(this.ctx.destination);
+                g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+                o.start(t); o.stop(t + dur);
+            },
+            fire(w) {
+                if (w === 0) { this._t('square', 700, 80, .18); this._t('sine', 350, 50, .22, .04); }
+                else if (w === 1) { this._t('sine', 120, 35, .55, .12); }
+                else { this._t('sawtooth', 55, 900, 1.1, .14); this._t('sine', 160, 12, 1.4, .18); }
+            },
+            hit(ok) { if (ok) this._t('sine', 1400, 2400, .1, .035); else this._t('sawtooth', 75, 40, .28, .09); },
+            breach() {
+                this._t('sawtooth', 110, 10, 2.0, .3);
+                this._t('square', 105, 5, 2.0, .2);
+            },
+            wave() { this._t('sine', 220, 850, 1.1, .05); },
+            peel() { this._t('sine', 550, 160, .8, .09); this._t('square', 280, 45, .6, .05); },
+            over() { this._t('sawtooth', 130, 32, 3, .15); this._t('square', 126, 28, 3, .09); }
+        };
+
+        // ═══════════════════════════════════════════
+        //  THREE.JS SETUP
+        // ═══════════════════════════════════════════
+        const canvas = document.getElementById('c');
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+        renderer.setSize(innerWidth, innerHeight);
+        renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+        renderer.setClearColor(0x000000);
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.2;
+
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x000000, 0.0018);
+
+        const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.1, 600);
+        camera.position.set(0, 14, 42);
+
+        const orbit = new OrbitControls(camera, renderer.domElement);
+        orbit.enableDamping = true; orbit.dampingFactor = 0.055;
+        orbit.autoRotate = true; orbit.autoRotateSpeed = 0.15;
+        orbit.enablePan = false; orbit.minDistance = 18; orbit.maxDistance = 90;
+
+        const composer = new EffectComposer(renderer);
+        composer.addPass(new RenderPass(scene, camera));
+        const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 1.8, 0.65, 0.6);
+        composer.addPass(bloom); composer.addPass(new OutputPass());
+
+        scene.add(new THREE.AmbientLight(0x111130, 3.0));
+        const coreLight = new THREE.PointLight(0xe8c547, 100, 70); coreLight.position.set(0, 0, 0); scene.add(coreLight);
+
+        // Twinkling Starfield
+        let starPoints;
+        {
+            const N = 4000, p = new Float32Array(N * 3), phase = new Float32Array(N);
+            for (let i = 0; i < N; i++) {
+                const r = THREE.MathUtils.randFloat(80, 240);
+                const ph = Math.acos(THREE.MathUtils.randFloatSpread(2));
+                const th = Math.random() * Math.PI * 2;
+                p[i * 3] = r * Math.sin(ph) * Math.cos(th); p[i * 3 + 1] = r * Math.sin(ph) * Math.sin(th); p[i * 3 + 2] = r * Math.cos(ph);
+                phase[i] = Math.random() * Math.PI * 2;
+            }
+            const g = new THREE.BufferGeometry();
+            g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3));
+            g.setAttribute('aPhase', new THREE.Float32BufferAttribute(phase, 1));
+
+            const starMat = new THREE.ShaderMaterial({
+                uniforms: { uTime: { value: 0 } },
+                vertexShader: `
+                    uniform float uTime;
+                    attribute float aPhase;
+                    varying float vAlpha;
+                    void main() {
+                        vAlpha = 0.3 + 0.7 * sin(uTime * 2.0 + aPhase);
+                        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+                        gl_PointSize = (120.0 / -mv.z);
+                        gl_Position = projectionMatrix * mv;
+                    }
+                `,
+                fragmentShader: `
+                    varying float vAlpha;
+                    void main() {
+                        vec2 uv = gl_PointCoord - 0.5;
+                        if(length(uv) > 0.5) discard;
+                        gl_FragColor = vec4(1.0, 1.0, 1.0, vAlpha * 0.6);
+                    }
+                `,
+                transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+            });
+            starPoints = new THREE.Points(g, starMat);
+            scene.add(starPoints);
+        }
+
+        // Core sphere
+        const coreMesh = new THREE.Mesh(
+            new THREE.SphereGeometry(.9, 20, 14),
+            new THREE.MeshBasicMaterial({ color: 0xe8c547, transparent: true, opacity: .75 })
+        );
+        scene.add(coreMesh);
+
+        // Halo rings around core
+        const haloRings = [];
+        for (let i = 0; i < 3; i++) {
+            const r = new THREE.Mesh(
+                new THREE.RingGeometry(1.0 + i * .4, 1.07 + i * .4, 48),
+                new THREE.MeshBasicMaterial({ color: 0xe8c547, transparent: true, opacity: .12 - i * .03, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending })
+            );
+            r.rotation.x = Math.random() * Math.PI; r.rotation.y = Math.random() * Math.PI;
+            scene.add(r); haloRings.push(r);
+        }
+
+        // Targeting Laser
+        const targetMat = new THREE.LineBasicMaterial({ color: 0xe8c547, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, linewidth: 2 });
+        const targetGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0)]);
+        const targetLine = new THREE.Line(targetGeo, targetMat);
+        scene.add(targetLine);
+
+        // ═══════════════════════════════════════════
+        //  SHADERS
+        // ═══════════════════════════════════════════
+        const nodeMat = new THREE.ShaderMaterial({
+            uniforms: { uTime: { value: 0 } },
+            vertexShader: `
+                uniform float uTime; attribute float aSize; attribute float aHealth; attribute float aGlow;
+                varying float vH; varying float vG;
+                void main(){
+                    vH=aHealth; vG=aGlow;
+                    float beat=0.88+0.12*sin(uTime*1.4+position.y*0.5+position.x*0.3);
+                    float extra=(vG>0.04)?(1.0+vG*3.0):1.0;
+                    float sz=aSize*beat*extra;
+                    vec4 mv=modelViewMatrix*vec4(position,1.0);
+                    gl_PointSize=sz*(1100.0 / -mv.z);
+                    gl_Position=projectionMatrix*mv;
+                }`,
+            fragmentShader: `
+                varying float vH; varying float vG;
+                void main(){
+                    vec2 uv=gl_PointCoord-0.5; float d=length(uv); if(d>0.5) discard;
+                    float soft=1.0-smoothstep(0.0,0.5,d); float core=1.0-smoothstep(0.0,0.22,d);
+                    vec3 col=mix(vec3(1.0,0.25,0.3),vec3(0.92,0.78,0.28),clamp(vH,0.0,1.0));
+                    if(vG>0.04) col=mix(col,vec3(0.3,0.76,0.97),clamp(vG,0.0,1.0)*0.8);
+                    gl_FragColor=vec4(col+core*0.5,soft*0.95);
+                }`,
+            transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+        });
+
+        const edgeMat = new THREE.ShaderMaterial({
+            uniforms: { uTime: { value: 0 } },
+            vertexShader: `
+                uniform float uTime; attribute float aT; attribute float aActive;
+                varying float vF; varying float vA;
+                void main(){
+                    vF=fract(aT-uTime*0.45); vA=aActive;
+                    gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);
+                }`,
+            fragmentShader: `
+                varying float vF; varying float vA;
+                void main(){
+                    float p=smoothstep(0.0,0.12,vF)*(1.0-smoothstep(0.12,0.34,vF));
+                    vec3 col=vA>0.5?vec3(0.92,0.78,0.28):vec3(0.26,0.30,0.42);
+                    float base=vA>0.5?0.20:0.06;
+                    gl_FragColor=vec4(col,base+p*(vA>0.5?0.70:0.16));
+                }`,
+            transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+        });
+
+        const blobBaseMat = new THREE.ShaderMaterial({
+            uniforms: { uTime: { value: 0 } },
+            vertexShader: `
+                uniform float uTime; attribute float aGrowth; attribute float aPhase;
+                varying float vG;
+                void main(){
+                    vG=aGrowth;
+                    float wobble=sin(uTime*5.0+aPhase+position.x*4.0)*0.08*aGrowth;
+                    vec3 p=position+normal*wobble;
+                    gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.0);
+                }`,
+            fragmentShader: `
+                varying float vG;
+                void main(){
+                    vec3 hot=vec3(1.0,0.12,0.18); vec3 warm=vec3(1.0,0.52,0.04);
+                    gl_FragColor=vec4(mix(warm,hot,vG),vG*0.62);
+                }`,
+            transparent: true, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending
+        });
+
+        const blobGlowMat = new THREE.MeshBasicMaterial({ color: 0xff3333, transparent: true, opacity: .2, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending });
+
+        // ═══════════════════════════════════════════
+        //  GAME STATE
+        // ═══════════════════════════════════════════
+        const GS = {
+            score: 0, streak: 0, hits: 0, breaches: 0, maxBreaches: 1, 
+            wave: 1, activeLayer: 5, totalLayers: 5, nextPeel: 10000,
+            DH: 0, OH: 0, QH: 0, novaReady: false,
+            paused: true, over: false,
+            weapon: 0, charges: [Infinity, 5, 0], cd: [0, 0, 0],
+            holding: false, holdStart: 0, phase: 0,
+            nodes: [], edges: [], edgeMap: new Map(), blobs: [], pulses: [],
+            nodesMesh: null, edgeMesh: null
+        };
+
+        const keys = { ArrowLeft: false, ArrowRight: false, ArrowUp: false, ArrowDown: false };
+
+        // ═══════════════════════════════════════════
+        //  GRAPH CONSTRUCTION
+        // ═══════════════════════════════════════════
+        function buildGraph() {
+            if (GS.nodesMesh) { scene.remove(GS.nodesMesh); GS.nodesMesh.geometry.dispose(); }
+            if (GS.edgeMesh) { scene.remove(GS.edgeMesh); GS.edgeMesh.geometry.dispose(); }
+            for (const bl of GS.blobs) { disposeBlobMemory(bl); }
+            GS.blobs = []; GS.nodes = []; GS.edges = []; GS.edgeMap.clear();
+
+            const maxL = GS.activeLayer;
+            const golden = (1 + Math.sqrt(5)) / 2;
+
+            GS.nodes.push({ pos: new THREE.Vector3(0, 0, 0), level: 0, weight: 4, alive: true, dR: 0, freq: .6, odStr: .35, size: 3.0, glow: 0, isRoot: true, isOuter: false });
+
+            for (let L = 1; L <= maxL; L++) {
+                const R = L * 3.6;
+                const N = Math.max(6, Math.floor(L * 9 + 6));
+                for (let i = 0; i < N; i++) {
+                    const phi = Math.acos(1 - 2 * (i + .5) / N);
+                    const theta = 2 * Math.PI * i / golden;
+                    GS.nodes.push({
+                        pos: new THREE.Vector3(R * Math.sin(phi) * Math.cos(theta), R * Math.sin(phi) * Math.sin(theta), R * Math.cos(phi)),
+                        level: L, weight: THREE.MathUtils.randFloat(.5, 1.6), alive: true, dR: R,
+                        freq: THREE.MathUtils.randFloat(.4, 1.9), odStr: THREE.MathUtils.randFloat(.2, .9),
+                        size: L === maxL ? THREE.MathUtils.randFloat(1.0, 1.6) : THREE.MathUtils.randFloat(1.1, 1.8), glow: 0, isRoot: false, isOuter: L === maxL
+                    });
+                }
+            }
+
+            for (let i = 1; i < GS.nodes.length; i++) {
+                const n = GS.nodes[i];
+                const inwardNode = GS.nodes.filter(m => m.level === n.level - 1).sort((a, b) => a.pos.distanceTo(n.pos) - b.pos.distanceTo(n.pos))[0];
+                const sameLayerNodes = GS.nodes.filter(m => m !== n && m.level === n.level).sort((a, b) => a.pos.distanceTo(n.pos) - b.pos.distanceTo(n.pos)).slice(0, 2);
+                
+                const candidates = [inwardNode, ...sameLayerNodes].filter(Boolean);
+                for (const m of candidates) {
+                    const ai = GS.nodes.indexOf(n), bi = GS.nodes.indexOf(m);
+                    const key = Math.min(ai, bi) + '-' + Math.max(ai, bi);
+                    if (!GS.edgeMap.has(key)) {
+                        const eObj = { key, a: n, b: m, active: false };
+                        GS.edges.push(eObj);
+                        GS.edgeMap.set(key, eObj);
+                    }
+                }
+            }
+
+            rebuildNodeMesh(); rebuildEdgeMesh(); buildPips();
+        }
+
+        function rebuildNodeMesh() {
+            if (GS.nodesMesh) { scene.remove(GS.nodesMesh); GS.nodesMesh.geometry.dispose(); }
+            const pos = [], sz = [], hlth = [], glw = [];
+            for (const n of GS.nodes) { pos.push(n.pos.x, n.pos.y, n.pos.z); sz.push(n.size); hlth.push(n.alive ? 1 : 0); glw.push(n.glow || 0); }
+            const g = new THREE.BufferGeometry();
+            g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+            g.setAttribute('aSize', new THREE.Float32BufferAttribute(sz, 1));
+            g.setAttribute('aHealth', new THREE.Float32BufferAttribute(hlth, 1));
+            g.setAttribute('aGlow', new THREE.Float32BufferAttribute(glw, 1));
+            GS.nodesMesh = new THREE.Points(g, nodeMat);
+            GS.nodesMesh.renderOrder = 1;
+            scene.add(GS.nodesMesh);
+        }
+
+        function rebuildEdgeMesh() {
+            if (GS.edgeMesh) { scene.remove(GS.edgeMesh); GS.edgeMesh.geometry.dispose(); }
+            const pos = [], aT = [], aAct = []; const segs = 16;
+            for (const e of GS.edges) {
+                for (let k = 0; k < segs; k++) {
+                    const t = k / (segs - 1);
+                    pos.push(THREE.MathUtils.lerp(e.a.pos.x, e.b.pos.x, t), THREE.MathUtils.lerp(e.a.pos.y, e.b.pos.y, t), THREE.MathUtils.lerp(e.a.pos.z, e.b.pos.z, t));
+                    aT.push(t); aAct.push(e.active ? 1 : 0);
+                }
+            }
+            const g = new THREE.BufferGeometry();
+            g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+            g.setAttribute('aT', new THREE.Float32BufferAttribute(aT, 1));
+            g.setAttribute('aAct', new THREE.Float32BufferAttribute(aAct, 1));
+            GS.edgeMesh = new THREE.LineSegments(g, edgeMat);
+            scene.add(GS.edgeMesh);
+        }
+
+        function buildPips() {
+            const pip = document.getElementById('pips'); pip.innerHTML = '';
+            for (let i = 0; i < GS.totalLayers; i++) { const d = document.createElement('div'); d.className = 'pip' + (i < GS.activeLayer ? ' on' : ' off'); pip.appendChild(d); }
+            document.getElementById('layertxt').textContent = `LAYERS ACTIVE: ${GS.activeLayer}`;
+        }
+
+        function bfsPath(start) {
+            const visited = new Set([start]); const queue = [[start]];
+            while (queue.length) {
+                const path = queue.shift(); const cur = path[path.length - 1];
+                if (cur.isRoot) return path;
+                const nbrs = GS.edges.filter(e => e.a === cur || e.b === cur).map(e => e.a === cur ? e.b : e.a).filter(n => !visited.has(n) && n.level <= cur.level);
+                for (const nb of nbrs) { visited.add(nb); queue.push([...path, nb]); }
+            }
+            return [start, GS.nodes[0]]; // Direct fallback to core
+        }
+
+        function markEdges(path, active) {
+            for (let i = 0; i < path.length - 1; i++) {
+                const a = path[i], b = path[i + 1];
+                const ai = GS.nodes.indexOf(a), bi = GS.nodes.indexOf(b);
+                const key = Math.min(ai, bi) + '-' + Math.max(ai, bi);
+                const e = GS.edgeMap.get(key);
+                if (e) e.active = active;
+            }
+        }
+
+        // ═══════════════════════════════════════════
+        //  BLOB SYSTEM & MEMORY
+        // ═══════════════════════════════════════════
+        const blobGeo = new THREE.SphereGeometry(1, 10, 7);
+        const blobHaloGeo = new THREE.SphereGeometry(1.6, 8, 5);
+
+        function disposeBlobMemory(bl) {
+            if (!bl) return;
+            scene.remove(bl.mesh); scene.remove(bl.halo);
+            if (bl.mesh) { bl.mesh.geometry.dispose(); }
+            if (bl.halo) { bl.halo.geometry.dispose(); }
+        }
+
+        function spawnBlob() {
+            const outers = GS.nodes.filter(n => n.isOuter && n.alive);
+            if (!outers.length) return;
+            const start = outers[Math.floor(Math.random() * outers.length)];
+            const path = bfsPath(start);
+            if (!path || path.length < 2) return;
+
+            const speedMult = 1 + GS.wave * .15 + (GS.totalLayers - GS.activeLayer) * .22;
+            const geo = blobGeo.clone();
+            const nv = geo.attributes.position.count;
+            geo.setAttribute('aGrowth', new THREE.Float32BufferAttribute(new Float32Array(nv).fill(0), 1));
+            geo.setAttribute('aPhase', new THREE.Float32BufferAttribute(new Float32Array(nv).map(() => Math.random() * Math.PI * 2), 1));
+
+            const mat = blobBaseMat.clone();
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.copy(start.pos);
+            scene.add(mesh);
+
+            const halo = new THREE.Mesh(blobHaloGeo.clone(), blobGlowMat.clone());
+            halo.position.copy(start.pos);
+            scene.add(halo);
+
+            const blob = { mesh, halo, path, t: 0, growth: 0, speed: .017 * speedMult, phase: Math.random() * Math.PI * 2, freq: THREE.MathUtils.randFloat(.5, 2.0), power: 1 + GS.wave * .12, alive: true, startNode: start };
+            markEdges(path, true); GS.blobs.push(blob);
+        }
+
+        function updateBlobs(dt) {
+            for (const bl of GS.blobs) {
+                if (!bl.alive) continue;
+                bl.t += bl.speed * dt * 60;
+                bl.growth = Math.min(1, bl.t / (bl.path.length - 1));
+                const seg = Math.floor(bl.t); const frac = bl.t - seg;
+                if (seg >= bl.path.length - 1) { coreBreached(bl); continue; }
+                const pA = bl.path[seg].pos, pB = bl.path[Math.min(seg + 1, bl.path.length - 1)].pos;
+                const curPos = new THREE.Vector3().lerpVectors(pA, pB, frac);
+                bl.mesh.position.copy(curPos); bl.halo.position.copy(curPos);
+
+                const s = .16 + bl.growth * .84;
+                bl.mesh.scale.set(s, s, s); bl.halo.scale.set(s * 1.65, s * 1.65, s * 1.65);
+                bl.halo.material.opacity = .1 + bl.growth * .24;
+
+                const gArr = bl.mesh.geometry.attributes.aGrowth.array; gArr.fill(bl.growth); bl.mesh.geometry.attributes.aGrowth.needsUpdate = true;
+                bl.mesh.rotation.y += dt * bl.freq; bl.halo.rotation.x += dt * bl.freq * .4;
+            }
+            
+            // GC for arrays
+            GS.blobs = GS.blobs.filter(bl => bl.alive);
+
+            if (GS.edgeMesh) {
+                const aArr = GS.edgeMesh.geometry.attributes.aAct.array;
+                const segs = 16; let k = 0;
+                for (const e of GS.edges) { for (let s = 0; s < segs; s++) aArr[k++] = e.active ? 1 : 0; }
+                GS.edgeMesh.geometry.attributes.aAct.needsUpdate = true;
+            }
+        }
+
+        function killBlob(bl, constructive) {
+            if (!bl.alive) return;
+            bl.alive = false; markEdges(bl.path, false);
+            disposeBlobMemory(bl);
+
+            if (constructive) {
+                GS.hits++; GS.streak++;
+                const mul = 1 + Math.floor(GS.streak / 4) * .5;
+                GS.score += Math.floor((80 + bl.growth * 65) * mul);
+                Snd.hit(true);
+                const np = bl.mesh.position; let best = null, bestD = Infinity;
+                for (const n of GS.nodes) { if (!n.alive) continue; const d = n.pos.distanceTo(np); if (d < bestD) { bestD = d; best = n; } }
+                if (best) best.glow = 2.0;
+            } else { GS.streak = 0; Snd.hit(false); }
+        }
+
+        function triggerBreachVisual() {
+            const geo = new THREE.SphereGeometry(1, 32, 32);
+            const mat = new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.9, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
+            const shock = new THREE.Mesh(geo, mat);
+            scene.add(shock);
+            let s = 1;
+            const shockAnim = () => {
+                s += 1.5; shock.scale.set(s, s, s); shock.material.opacity -= 0.04;
+                if (shock.material.opacity > 0) requestAnimationFrame(shockAnim);
+                else { scene.remove(shock); geo.dispose(); mat.dispose(); }
+            };
+            shockAnim();
+        }
+
+        function coreBreached(bl) {
+            bl.alive = false; markEdges(bl.path, false);
+            disposeBlobMemory(bl);
+
+            GS.breaches++; GS.streak = 0;
+            Snd.breach(); triggerBreachVisual();
+            coreMesh.material.color.set(0xff2222);
+
+            updateHearts();
+            if (GS.breaches >= GS.maxBreaches) {
+                triggerGameOver();
+            } else {
+                setTimeout(() => coreMesh.material.color.set(0xe8c547), 600);
+            }
+        }
+
+        function updateHearts() {
+            const h = document.getElementById('h0');
+            if (h) h.className = 'heart' + (GS.breaches > 0 ? ' lost' : '');
+        }
+
+        // ═══════════════════════════════════════════
+        //  MATH UTILITIES (NOVA)
+        // ═══════════════════════════════════════════
+        function distSqToSegment(p, v, w) {
+            const l2 = v.distanceToSquared(w);
+            if (l2 === 0) return p.distanceToSquared(v);
+            let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y) + (p.z - v.z) * (w.z - v.z)) / l2;
+            t = Math.max(0, Math.min(1, t));
+            const projX = v.x + t * (w.x - v.x);
+            const projY = v.y + t * (w.y - v.y);
+            const projZ = v.z + t * (w.z - v.z);
+            return (p.x - projX)**2 + (p.y - projY)**2 + (p.z - projZ)**2;
+        }
+
+        function sech2(x) { const c = Math.cosh(Math.min(Math.abs(x), 350)); return 1/(c*c); }
+
+        function spawnArc(a, b) {
+            const points = [];
+            const segs = 10;
+            for(let i=0; i<=segs; i++){
+                const t = i/segs;
+                const p = new THREE.Vector3().lerpVectors(a, b, t);
+                if(i > 0 && i < segs){ 
+                    p.x += (Math.random()-0.5)*2.5;
+                    p.y += (Math.random()-0.5)*2.5;
+                    p.z += (Math.random()-0.5)*2.5;
+                }
+                points.push(p);
+            }
+            const geo = new THREE.BufferGeometry().setFromPoints(points);
+            const mat = new THREE.LineBasicMaterial({color:0xb44fff, transparent:true, opacity:0.8, blending:THREE.AdditiveBlending, depthWrite:false});
+            const line = new THREE.Line(geo, mat);
+            scene.add(line);
+            setTimeout(() => { scene.remove(line); geo.dispose(); mat.dispose(); }, 200);
+        }
+
+        function fireNova(phase) {
+            Snd.fire(2);
+            coreMesh.material.color.setHex(0xb44fff);
+            setTimeout(()=>coreMesh.material.color.setHex(0xe8c547),900);
+
+            const visited = new Set([GS.nodes[0]]);
+            const queue = [GS.nodes[0]];
+            const traversedEdges = new Set();
+            const hitBlobs = new Set();
+
+            while(queue.length){
+                const node = queue.shift();
+                const nbrs = GS.edges.filter(e => e.a === node || e.b === node).map(e => e.a === node ? e.b : e.a);
+                
+                for(const nb of nbrs){
+                    if(!nb.alive) continue;
+                    
+                    const ai = GS.nodes.indexOf(node);
+                    const bi = GS.nodes.indexOf(nb);
+                    const eKey = Math.min(ai,bi)+'-'+Math.max(ai,bi);
+                    
+                    if(!traversedEdges.has(eKey)){
+                        traversedEdges.add(eKey);
+                        spawnArc(node.pos, nb.pos);
+
+                        for(const bl of GS.blobs){
+                            if(!bl.alive || hitBlobs.has(bl)) continue;
+                            if(distSqToSegment(bl.mesh.position, node.pos, nb.pos) < 6.25) { 
+                                hitBlobs.add(bl);
+                                let dPh = Math.abs(phase - bl.phase); 
+                                while(dPh > Math.PI) dPh -= 2*Math.PI; 
+                                dPh = Math.abs(dPh);
+                                const G = sech2(dPh);
+                                if(G > 0.25) {
+                                    GS.score += Math.floor(180 * bl.growth); 
+                                    killBlob(bl, true);
+                                } else {
+                                    killBlob(bl, false);
+                                }
+                            }
+                        }
+                    }
+
+                    if(!visited.has(nb)){
+                        visited.add(nb);
+                        queue.push(nb);
+                    }
+                }
+            }
+        }
+
+        // ═══════════════════════════════════════════
+        //  PULSE / FIRE SYSTEM (BOLT & SIEVE)
+        // ═══════════════════════════════════════════
+        const ringGeoBase = new THREE.RingGeometry(.05, .32, 48);
+        function makePulseMat(col) { return new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: .9, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }); }
+
+        const WEAPON_HIT_THICKNESS = [2.0, 4.0];
+        const WEAPON_MAX_R = [14, 22];
+        const WEAPON_SPEED = [30, 20];
+
+        function firePulse(worldPos, wType, phase, chargeAmt) {
+            Snd.fire(wType);
+            const col = wType === 0 ? 0xe8c547 : 0x4fc3f7;
+            const mesh = new THREE.Mesh(ringGeoBase.clone(), makePulseMat(col));
+            mesh.position.copy(worldPos); mesh.lookAt(camera.position); scene.add(mesh);
+            
+            const maxR = WEAPON_MAX_R[wType] * (1 + chargeAmt * 1.5);
+            const spd = WEAPON_SPEED[wType] * (0.7 + chargeAmt * 0.6);
+            const pow = 1.0 + chargeAmt * 1.5;
+
+            GS.pulses.push({ mesh, pos: worldPos.clone(), r: 0, maxR, spd, phase, pow, alive: true, wType, hit: new Set() });
+        }
+
+        function updatePulses(dt) {
+            for (const p of GS.pulses) {
+                if (!p.alive) continue;
+                p.r += p.spd * dt;
+                if (p.r >= p.maxR) { p.alive = false; scene.remove(p.mesh); p.mesh.geometry.dispose(); p.mesh.material.dispose(); continue; }
+                const s = p.r; p.mesh.scale.set(s, s, s);
+                p.mesh.material.opacity = (1 - p.r / p.maxR) * 0.88;
+            }
+            GS.pulses = GS.pulses.filter(p => p.alive);
+        }
+
+        function checkHits() {
+            for (const p of GS.pulses) {
+                if (!p.alive) continue;
+                for (const bl of GS.blobs) {
+                    if (!bl.alive || p.hit.has(bl)) continue;
+                    const d = p.pos.distanceTo(bl.mesh.position);
+                    const thickness = WEAPON_HIT_THICKNESS[p.wType]; 
+                    
+                    if (Math.abs(d - p.r) < thickness) {
+                        p.hit.add(bl);
+                        const cosP = Math.cos(p.phase - bl.phase);
+                        if (cosP > 0) {
+                            const dmg = p.pow * (0.65 + cosP * .35);
+                            bl.t = Math.max(0, bl.t - dmg * 3.5);
+                            bl.growth = Math.min(1, bl.t / (bl.path.length - 1));
+                            if (bl.t <= 0) { killBlob(bl, true); }
+                            else { GS.hits++; GS.score += Math.floor(22 * p.pow * (1 + GS.streak * .1)); GS.streak++; Snd.hit(true); }
+                        } else {
+                            bl.speed *= 1.25; bl.power *= 1.15; GS.streak = 0; Snd.hit(false);
+                        }
+                    }
+                }
+            }
+        }
+
+        // ═══════════════════════════════════════════
+        //  WAVE / SPAWN
+        // ═══════════════════════════════════════════
+        let spawnTimer = 0, wFlashTimer = 0, spawnInterval = 3.5;
+
+        function startWave(w) {
+            GS.wave = w;
+            spawnInterval = Math.max(1.0, 3.5 - w * .2 - (GS.totalLayers - GS.activeLayer) * .16);
+            document.getElementById('wlabel').textContent = `WAVE ${w}`;
+            flash(`WAVE  ${w}`, 'var(--gold)'); Snd.wave();
+        }
+
+        function flash(txt, col) {
+            const el = document.getElementById('wflash');
+            el.textContent = txt; el.style.color = col || '';
+            el.classList.add('show'); wFlashTimer = 2.2;
+        }
+
+        function checkPeel() {
+            if (GS.activeLayer > 1 && GS.score >= GS.nextPeel) {
+                GS.activeLayer--; GS.nextPeel += 10000;
+                flash('LAYER STRIPPED', '#ff4757'); Snd.peel();
+                for (const bl of GS.blobs) { if (bl.alive && bl.startNode.level > GS.activeLayer) killBlob(bl, false); }
+                buildGraph();
+            }
+        }
+
+        function calcQ() {
+            let dh = 0, oh = 0; const t = performance.now() * .001;
+            for (const n of GS.nodes) { if (n.alive) { dh += n.weight; oh += Math.sin(t * n.freq + n.level * .7) * n.odStr * .55; } }
+            for (const bl of GS.blobs) { if (bl.alive) oh -= bl.power * bl.growth * Math.sin(t * bl.freq + bl.phase) * 1.4; }
+            GS.DH = dh; GS.OH = oh; GS.QH = dh + oh;
+            GS.novaReady = (GS.QH >= Math.max(1, GS.DH * 0.75));
+        }
+
+        // ═══════════════════════════════════════════
+        //  GAME OVER / RESET
+        // ═══════════════════════════════════════════
+        function triggerGameOver() {
+            GS.over = true; GS.holding = false; Snd.over();
+            document.getElementById('escore').textContent = 'Score: ' + String(GS.score).padStart(6, '0');
+            document.getElementById('endscreen').classList.add('show');
+            targetLine.material.opacity = 0;
+        }
+
+        function resetGame() {
+            GS.score = 0; GS.streak = 0; GS.hits = 0; GS.breaches = 0;
+            GS.wave = 1; GS.activeLayer = GS.totalLayers; GS.nextPeel = 10000;
+            GS.paused = false; GS.over = false; GS.novaReady = false;
+            GS.weapon = 0; GS.charges = [Infinity, 5, 0]; GS.cd = [0, 0, 0];
+            GS.holding = false;
+            document.getElementById('wc1').textContent = 5; 
+            for (const p of GS.pulses) { scene.remove(p.mesh); p.mesh.geometry.dispose(); p.mesh.material.dispose(); }
+            GS.pulses = [];
+            coreMesh.material.color.set(0xe8c547);
+
+            document.getElementById('endscreen').classList.remove('show');
+            document.getElementById('startscreen').classList.remove('show');
+            selectW(0); updateHearts(); buildGraph(); startWave(1); spawnTimer = 0;
+        }
+
+        // ═══════════════════════════════════════════
+        //  HUD UPDATE
+        // ═══════════════════════════════════════════
+        function updateHUD() {
+            const q = GS.QH;
+            const qv = document.getElementById('qval'), qb = document.getElementById('stab-bar'), qt = document.getElementById('stab-tag');
+            qv.textContent = (q >= 0 ? '+' : '') + q.toFixed(1);
+            const c = q < 0 ? '#ff4757' : q < 4 ? '#ffa502' : '#2ed573';
+            qv.style.color = c; qb.style.background = c;
+            qb.style.width = Math.max(0, Math.min(100, (q / (Math.max(GS.DH, .01))) * 100)) + '%';
+            qt.textContent = q < 0 ? 'CRITICAL' : q < 4 ? 'UNSTABLE' : 'STABLE'; qt.style.color = c;
+
+            document.getElementById('veil').className = q < 0 ? 'crit' : q < 3 ? 'warn' : '';
+            document.getElementById('dhv').textContent = (GS.DH >= 0 ? '+' : '') + GS.DH.toFixed(1);
+            document.getElementById('ohv').textContent = (GS.OH >= 0 ? '+' : '') + GS.OH.toFixed(1);
+            document.getElementById('dhb').style.width = Math.min(100, (GS.DH / 40) * 100) + '%';
+            document.getElementById('ohb').style.width = Math.min(100, (Math.abs(GS.OH) / 25) * 100) + '%';
+
+            document.getElementById('nc').textContent = GS.nodes.filter(n => n.alive).length;
+            document.getElementById('hits').textContent = GS.hits;
+            document.getElementById('bc').textContent = GS.blobs.filter(b => b.alive).length;
+            document.getElementById('str').textContent = GS.streak;
+            document.getElementById('smain').textContent = String(GS.score).padStart(6, '0');
+            document.getElementById('snext').textContent = `next peel: ${Math.max(0, GS.nextPeel - GS.score)}`;
+
+            // Nova UI updates
+            const targetQ = Math.max(1, GS.DH * 0.75);
+            const novaPct = Math.min(100, Math.max(0, (GS.QH / targetQ) * 100)) || 0;
+            const nf = document.getElementById('nova-fill'); if(nf) nf.style.width = novaPct + '%';
+            const ns = document.getElementById('nova-sub'); if(ns) ns.textContent = GS.novaReady ? 'NOVA READY — press 3' : 'Stabilizing...';
+            const wc2el = document.getElementById('wc2'); if(wc2el) wc2el.textContent = GS.novaReady ? 'RDY' : '—';
+
+            for (let i = 0; i < 3; i++) document.getElementById('w' + i).classList.toggle('cd', GS.cd[i] > 0 || (i === 2 && !GS.novaReady));
+
+            if (GS.holding) {
+                const held = (performance.now() - GS.holdStart) / 1000;
+                const pct = Math.min(100, (held / 2.0) * 100);
+                const curPhase = held % (Math.PI * 2);
+
+                const phaseCol = `hsl(${Math.floor((curPhase / (Math.PI * 2)) * 360)}, 100%, 60%)`;
+
+                document.getElementById('phfill').style.width = pct + '%';
+                document.getElementById('phfill').style.backgroundColor = phaseCol;
+                document.getElementById('phwrap').classList.add('vis');
+            } else {
+                document.getElementById('phwrap').classList.remove('vis');
+            }
+        }
+
+        // ═══════════════════════════════════════════
+        //  INPUT & TARGETING
+        // ═══════════════════════════════════════════
+        const ray = new THREE.Raycaster(), ptr = new THREE.Vector2(), plane = new THREE.Plane(), hitPt = new THREE.Vector3();
+
+        function getWorldPt(cx, cy) {
+            ptr.set((cx / innerWidth) * 2 - 1, -(cy / innerHeight) * 2 + 1);
+            ray.setFromCamera(ptr, camera);
+            plane.normal.copy(camera.position).normalize();
+            plane.constant = -plane.normal.dot(camera.position) * .45;
+            ray.ray.intersectPlane(plane, hitPt);
+            return hitPt.clone();
+        }
+
+        let spaceHold = false;
+        let lastFireX = innerWidth / 2, lastFireY = innerHeight / 2;
+
+        function doFire(cx, cy) {
+            if (GS.paused || GS.over || !GS.holding) return;
+            const held = (performance.now() - GS.holdStart) / 1000;
+            const chargeAmt = Math.min(2.0, held) / 2.0;
+            GS.phase = held % (Math.PI * 2);
+            GS.holding = false; spaceHold = false;
+            
+            const wp = getWorldPt(cx, cy);
+            const w = GS.weapon;
+            if (GS.cd[w] > 0) return;
+            
+            if (w === 0) { GS.cd[0] = .3; firePulse(wp, 0, GS.phase, chargeAmt); }
+            else if (w === 1 && GS.charges[1] > 0) { GS.charges[1]--; GS.cd[1] = 1.1; document.getElementById('wc1').textContent = GS.charges[1]; firePulse(wp, 1, GS.phase, chargeAmt); }
+            else if (w === 2 && GS.novaReady) { GS.cd[2] = 3.0; fireNova(GS.phase); }
+        }
+
+        canvas.addEventListener('mousemove', e => { lastFireX = e.clientX; lastFireY = e.clientY; });
+        canvas.addEventListener('mousedown', e => { if (e.button !== 0 || GS.paused || GS.over) return; GS.holding = true; GS.holdStart = performance.now(); });
+        canvas.addEventListener('mouseup', e => { if (e.button !== 0) return; doFire(e.clientX, e.clientY); });
+
+        document.addEventListener('keydown', e => {
+            if (e.key in keys) { keys[e.key] = true; e.preventDefault(); return; }
+            if (e.code === 'Space') { e.preventDefault(); if (!GS.paused && !GS.over && !spaceHold) { spaceHold = true; GS.holding = true; GS.holdStart = performance.now(); } }
+            if (e.key === '1') selectW(0); if (e.key === '2') selectW(1); if (e.key === '3') selectW(2);
+        });
+        document.addEventListener('keyup', e => {
+            if (e.key in keys) { keys[e.key] = false; return; }
+            if (e.code === 'Space' && spaceHold) { spaceHold = false; doFire(lastFireX, lastFireY); }
+        });
+
+        function selectW(i) { GS.weapon = i; document.querySelectorAll('.ws').forEach((el, j) => el.classList.toggle('on', j === i)); }
+        document.querySelectorAll('.ws').forEach(el => el.addEventListener('click', e => { e.stopPropagation(); selectW(+el.dataset.w); }));
+        document.getElementById('startbtn').addEventListener('click', () => { Snd.init(); resetGame(); });
+        document.getElementById('endbtn').addEventListener('click', () => { Snd.init(); resetGame(); });
+
+        const KEY_ROT_SPEED = 1.4;
+        function applyKeyRotation(dt) {
+            if (!(keys.ArrowLeft || keys.ArrowRight || keys.ArrowUp || keys.ArrowDown)) return;
+            const sph = new THREE.Spherical().setFromVector3(camera.position);
+            if (keys.ArrowLeft) sph.theta -= KEY_ROT_SPEED * dt;
+            if (keys.ArrowRight) sph.theta += KEY_ROT_SPEED * dt;
+            if (keys.ArrowUp) sph.phi = Math.max(.1, sph.phi - KEY_ROT_SPEED * dt);
+            if (keys.ArrowDown) sph.phi = Math.min(Math.PI - .1, sph.phi + KEY_ROT_SPEED * dt);
+            camera.position.setFromSpherical(sph); camera.lookAt(0, 0, 0); orbit.update();
+        }
+
+        // ═══════════════════════════════════════════
+        //  RENDER LOOP
+        // ═══════════════════════════════════════════
+        const clock = new THREE.Clock(); let gt = 0;
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const dt = Math.min(clock.getDelta(), .05); gt += dt;
+
+            nodeMat.uniforms.uTime.value = gt; edgeMat.uniforms.uTime.value = gt; blobBaseMat.uniforms.uTime.value = gt;
+            if (starPoints) starPoints.material.uniforms.uTime.value = gt;
+
+            applyKeyRotation(dt);
+
+            if (!GS.paused && !GS.over) {
+                for (let i = 0; i < 3; i++) if (GS.cd[i] > 0) GS.cd[i] = Math.max(0, GS.cd[i] - dt);
+                if (wFlashTimer > 0) { wFlashTimer -= dt; if (wFlashTimer <= 0) document.getElementById('wflash').classList.remove('show'); }
+
+                spawnTimer += dt; if (spawnTimer >= spawnInterval) { spawnTimer = 0; spawnBlob(); }
+
+                updateBlobs(dt); updatePulses(dt); checkHits(); calcQ(); checkPeel();
+
+                const newWave = Math.max(1, Math.floor(GS.score / 500) + 1);
+                if (newWave > GS.wave) startWave(newWave);
+
+                if (GS.nodesMesh) {
+                    const hArr = GS.nodesMesh.geometry.attributes.aHealth.array;
+                    const gArr = GS.nodesMesh.geometry.attributes.aGlow.array;
+                    for (let i = 0; i < GS.nodes.length; i++) {
+                        hArr[i] = GS.nodes[i].alive ? Math.min(1, GS.nodes[i].weight / 1.4) : 0;
+                        gArr[i] = GS.nodes[i].glow || 0;
+                        if (GS.nodes[i].glow > 0) GS.nodes[i].glow = Math.max(0, GS.nodes[i].glow - dt * 2.0);
+                    }
+                    GS.nodesMesh.geometry.attributes.aHealth.needsUpdate = true;
+                    GS.nodesMesh.geometry.attributes.aGlow.needsUpdate = true;
+                }
+
+                const wp = getWorldPt(lastFireX, lastFireY);
+                targetLine.geometry.setFromPoints([new THREE.Vector3(0, 0, 0), wp]);
+                if (GS.holding) {
+                    const held = (performance.now() - GS.holdStart) / 1000;
+                    const curPhase = held % (Math.PI * 2);
+                    targetLine.material.opacity = 0.8;
+                    targetLine.material.color.setHSL((curPhase / (Math.PI * 2)), 1.0, 0.6);
+                } else {
+                    targetLine.material.opacity = 0.2;
+                    targetLine.material.color.setHex(0xe8c547);
+                }
+
+                updateHUD();
+            } else {
+                targetLine.material.opacity = 0;
+            }
+
+            // Visual Core charging response
+            let cp = 1 + Math.sin(gt * 2.1) * .1; 
+            let li = 85 + Math.sin(gt * 1.7) * 20;
+            if(GS.holding){
+                const holdT = Math.min(2.0, (performance.now() - GS.holdStart) / 1000);
+                const chargeAmt = holdT / 2.0;
+                cp += chargeAmt * 0.6;
+                li += chargeAmt * 60;
+            }
+            coreMesh.scale.set(cp, cp, cp);
+            coreLight.intensity = li;
+            
+            haloRings.forEach((r, i) => { r.rotation.y += dt * (0.14 + i * .06); r.rotation.z += dt * (0.08 + i * .04); });
+
+            orbit.update(); composer.render();
+        }
+
+        buildGraph(); animate();
+        window.addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); bloom.resolution.set(innerWidth, innerHeight); });
+    </script>
+</body>
+
+</html>
