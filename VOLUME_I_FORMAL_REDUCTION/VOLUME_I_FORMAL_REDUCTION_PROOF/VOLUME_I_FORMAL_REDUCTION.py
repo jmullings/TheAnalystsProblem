@@ -3,9 +3,103 @@
 #
 # FORMAL_REDUCTION_QH_ANALYST_PROBLEM.py
 #
-# Formal Reduction – Q_H Analyst’s Problem core.
-# Implements the proven sech² second‑moment Parseval bridge in a
-# minimal, dependency‑free form adapted from Tier‑32 engine code.
+# Volume I — Formal Reduction (Production Version)
+#
+# This module encodes the *reduced* finite-dimensional inequality
+# (“The Analyst’s Problem”) associated to the Riemann Hypothesis (RH),
+# in a minimal, dependency‑free Python form.
+#
+# It is aligned with the reframed kernel framework of Volume II
+# (the dual‑positive sech⁴ kernel k_H) and with the LRM audit.
+#
+# --------------------------------------------------------------------
+# FORMAL ROLE OF THIS MODULE (VOLUME I INTERFACE)
+# --------------------------------------------------------------------
+#
+# (V1-1) Admissible test functions:
+#
+#   Volume I defines an admissible class 𝒦 of even, smooth, rapidly
+#   decaying test functions k: ℝ → ℝ, suitable for the Weil explicit
+#   formula and the Parseval-type bridge used in the reduction.
+#
+# (V1-2) Kernel-agnostic reduction:
+#
+#   For any k ∈ 𝒦, one can form a Toeplitz quadratic form
+#
+#       Q_H^{(k)}(N, T0)
+#         = ∑_{m,n ≤ N} x_m x_n (m/n)^(-i T0) k̂(log m − log n),
+#
+#   with x_n = n^{-σ}, σ = 1/2, and k̂ the Fourier transform (on log‑scale)
+#   determined by the explicit formula. The Volume I reduction theorem
+#   states:
+#
+#       RH  ⇔  Q_H^{(k)}(N, T0) ≥ 0
+#
+#   for all admissible parameters (H, N, T0) in the regime described in
+#   the manuscript, uniformly, provided k ∈ 𝒦.
+#
+# (V1-3) Choice of canonical kernel:
+#
+#   Volume II proves that
+#
+#       k_H(t) = (6/H²) sech⁴(t/H)
+#
+#   is admissible (even, C^∞, rapid decay) and *dual‑positive*:
+#   k_H(t) ≥ 0 for all t, and its Fourier symbol k̂_H(ω) ≥ 0 for all ω.
+#   In particular, k_H ∈ 𝒦. We therefore *fix* this kernel as the
+#   canonical choice for the Analyst’s Problem:
+#
+#       Q_H(N, T0) := Q_H^{(k_H)}(N, T0).
+#
+# (V1-4) Time-domain representation:
+#
+#   Using the Dirichlet polynomial
+#
+#       D_N(σ, T) = ∑_{n=1}^N n^{-σ} e^{-i T log n},
+#
+#   the same quadratic form can be written as a convolution:
+#
+#       Q_H(N, T0)
+#         = ∫_{ℝ} k_H(t) |D_N(σ, T0 + t)|² dt
+#         =: F̄₂(T0, H; N).
+#
+#   The “Parseval bridge” (proved analytically in Volume I, validated
+#   numerically here) identifies the Toeplitz sum and the integral.
+#
+# (V1-5) Analyst’s Problem (final statement):
+#
+#   The Analyst’s Problem is:
+#
+#       Prove that Q_H(N, T0) ≥ 0
+#
+#   for all admissible H > 0, N ∈ ℕ, and T0 ∈ ℝ, using the canonical
+#   kernel k_H(t) = (6/H²) sech⁴(t/H).
+#
+#   Volume I shows:
+#
+#       RH  ⇔  (Analyst’s Problem with k_H).
+#
+# --------------------------------------------------------------------
+# SCOPE OF THIS FILE
+# --------------------------------------------------------------------
+#
+# • Implements k_H and k̂_H in the simplified Fourier convention used
+#   in the “Tier‑32 engine” (ω instead of ξ, and w_H hat as in the
+#   original code).
+#
+# • Implements the Dirichlet polynomial D_N, the time‑domain integral
+#   F̄₂(T0, H; N), and the Toeplitz form in ω.
+#
+# • Provides a decomposition Q_H = M1 + Cross, where M1 is the diagonal
+#   term and Cross is the off‑diagonal interference term.
+#
+# • Exposes a “FormalReduction” API used by the validation suite and
+#   later volumes.
+#
+# This module does NOT itself prove RH; it encodes the finite object
+# to which RH has been reduced and provides a numerically verified
+# Parseval bridge between its equivalent representations.
+#
 
 import math
 import cmath
@@ -15,26 +109,49 @@ from typing import List, Tuple, Sequence
 ##############################
 # 1. BASIC SPECIAL FUNCTIONS #
 ##############################
-def k_H_time(t: float, H: float) -> float:
-    """Time-domain kernel alias for g_H_sech4."""
-    return g_H_sech4(t, H)
-    
+
 def sech(x: float) -> float:
+    """
+    sech(x) = 1 / cosh(x).
+
+    Hyperbolic base function used in the definition of w_H and k_H.
+    """
     return 1.0 / math.cosh(x)
 
 
 def sech2(x: float) -> float:
+    """
+    sech²(x), used as the base window w_H(t) = sech²(t/H).
+    """
     c = math.cosh(x)
     return 1.0 / (c * c)
 
 
 def sech4(x: float) -> float:
+    """
+    sech⁴(x), giving the closed form of the stabilised kernel k_H in t/H.
+    """
     s2 = sech2(x)
     return s2 * s2
 
 
 def tanh(x: float) -> float:
+    """
+    tanh(x), used only in legacy curvature formulas.
+    """
     return math.tanh(x)
+
+
+def k_H_time(t: float, H: float) -> float:
+    """
+    Time-domain kernel alias for the canonical k_H:
+
+        k_H(t) = g_H_sech4(t, H) = (6/H²) sech⁴(t/H).
+
+    Exposed as a named alias for clarity where the Volume I manuscript
+    refers to “k_H(t) in the time domain”.
+    """
+    return g_H_sech4(t, H)
 
 
 ########################################
@@ -43,21 +160,29 @@ def tanh(x: float) -> float:
 
 def Lambda_H_tau(tau: float, H: float) -> float:
     """
-    Legacy curvature window used by earlier drafts.
+    Legacy curvature window Λ_H used in earlier drafts:
 
-    Kept for API compatibility with the validation suite.
-    Not used in the final second‑moment bridge, which is
-    built on g_{λ*}(t) = (6/H²) sech⁴(t/H).
+        Λ_H(τ) = 2π sech²(τ/H).
+
+    Kept ONLY for API compatibility with the historical validation suite.
+    It is not used in the final second-moment bridge, which is built on
+    the stabilised kernel
+
+        g_{λ*}(t) = (6/H²) sech⁴(t/H) = k_H(t).
     """
     u = tau / H
     return 2.0 * math.pi * sech2(u)
 
 
 def Lambda_H_dd_tau(tau: float, H: float) -> float:
-    """
-    Second derivative of the legacy Λ_H:
+    r"""
+    Second derivative of the legacy Λ_H with respect to τ:
 
         Λ_H''(τ) = (2π/H²) sech²(τ/H) [4 − 6 sech²(τ/H)].
+
+    This was part of the earlier curvature-based framing and is preserved
+    solely for regression and comparison. It plays no role in the final
+    reduction, which uses the dual-positive k_H.
     """
     u = tau / H
     s2 = sech2(u)
@@ -69,45 +194,79 @@ def Lambda_H_dd_tau(tau: float, H: float) -> float:
 ##############################
 
 def w_H_time(t: float, H: float) -> float:
-    """w_H(t) = sech²(t/H)."""
+    """
+    Base window:
+
+        w_H(t) = sech²(t/H).
+
+    This is the same w_H that appears in the Volume II decomposition
+    of k_H as -w_H'' + λ* w_H.
+    """
     return sech2(t / H)
 
 
 def g_H_sech4(t: float, H: float) -> float:
-    """
-    g_{λ*}(t) = (6/H²) sech⁴(t/H).
+    r"""
+    Stabilised kernel in the time domain:
 
-    This is the corrected Bochner‑positive kernel used in the
-    second‑moment bridge.
+        g_{λ*}(t) = k_H(t) = (6/H²) sech⁴(t/H).
+
+    This is the canonical choice of test function for the Analyst’s
+    Problem, proven admissible and dual-positive in Volume II.
     """
     return (6.0 / (H * H)) * sech4(t / H)
 
 
 def fourier_w_H(omega: float, H: float) -> float:
-    """
-    Fourier transform of w_H(t) = sech²(t/H):
+    r"""
+    Fourier transform of w_H(t) = sech²(t/H) in the *engine convention*:
 
         ŵ_H(ω) = π H² ω / sinh(π H ω / 2),
 
     with the convention that ŵ_H(0) = 2H.
+
+    Note: this is a scaled version of the analytic convention used in
+    Volume II. The mapping is carefully tracked so that
+
+        k̂_H(ω) = (ω² + λ*) ŵ_H(ω)
+
+    still holds in this ω-variable normalisation.
     """
     if abs(omega) < 1e-15:
         return 2.0 * H
     arg = math.pi * H * omega / 2.0
     if abs(arg) > 700.0:
-        # Exponential suppression
+        # Exponential suppression for large |arg|.
         return 0.0
     return (math.pi * H * H * omega) / math.sinh(arg)
 
 
 def lambda_star(H: float) -> float:
-    """λ* = 4 / H² in the corrected kernel ĝ_{λ*}."""
+    """
+    Stabilisation constant:
+
+        λ* = 4 / H².
+
+    Volume II proves this is the minimal λ in the family -w_H'' + λ w_H
+    that yields a globally nonnegative kernel. Here we use it as a
+    fixed constant in the definition of k̂_H.
+    """
     return 4.0 / (H * H)
 
 
 def k_H_hat(omega: float, H: float) -> float:
-    """
-    ĝ_{λ*}(ω) = (ω² + λ*) · ŵ_H(ω), strictly ≥ 0 by Bochner.
+    r"""
+    Frequency-side kernel symbol:
+
+        k̂_H(ω) = (ω² + λ*) · ŵ_H(ω),
+
+    where ŵ_H is the w_H transform in this engine convention.
+
+    In this normalisation k̂_H(ω) ≥ 0 for all real ω, implementing the
+    Bochner positivity needed for the Toeplitz PSD property.
+
+    This matches the Volume II identity up to the change of variable
+    between ξ (analytic) and ω (engine).
     """
     lam = lambda_star(H)
     wh = fourier_w_H(omega, H)
@@ -119,8 +278,13 @@ def k_H_hat(omega: float, H: float) -> float:
 ##############################
 
 def dirichlet_S_N(T: float, N: int, sigma: float = 0.5) -> complex:
-    """
-    S_N(σ,T) = Σ n^{-σ} e^{-i T ln n}.
+    r"""
+    Dirichlet polynomial:
+
+        S_N(σ, T) = ∑_{n=1}^N n^{-σ} e^{-i T ln n}.
+
+    In the Analyst’s Problem, σ = 1/2 is the primary case, but σ is
+    kept as a parameter for generality and testing.
     """
     s = 0.0 + 0.0j
     for n in range(1, N + 1):
@@ -130,11 +294,16 @@ def dirichlet_S_N(T: float, N: int, sigma: float = 0.5) -> complex:
 
 
 def dirichlet_S_N_derivatives(T: float, N: int, sigma: float = 0.5):
-    """
-    (S_N, S_N', S_N'') wrt σ, as in your original script.
+    r"""
+    (S_N, S_N', S_N'') with respect to σ.
 
-    Kept to satisfy existing F2_sigma_T tests, although the bridge
-    itself is built on |S_N|², not its σ‑derivatives.
+    These derivatives are used in the F₂(σ, T) functional:
+
+        F₂(σ, T) = 2 |S_N'|² + 2 Re(S_N'' conj(S_N)),
+
+    which appears in legacy tests. The formal Volume I reduction is
+    stated in terms of |S_N|² rather than σ-derivatives; this function
+    is maintained to keep the validation suite intact.
     """
     S0 = 0.0 + 0.0j
     S1 = 0.0 + 0.0j
@@ -149,12 +318,14 @@ def dirichlet_S_N_derivatives(T: float, N: int, sigma: float = 0.5):
 
 
 def F2_sigma_T(T: float, N: int, sigma: float = 0.5) -> float:
-    """
-    Your σ‑second derivative functional:
+    r"""
+    Legacy σ‑second derivative functional:
 
-        F₂(σ,T) = 2|S_N'|² + 2 Re(S_N'' conj(S_N)).
+        F₂(σ, T) = 2|S_N'|² + 2 Re(S_N'' conj(S_N)).
 
-    Used only for TDD tests that explicitly reference it.
+    Used only in tests that explicitly reference it. The main reduction
+    works with the second moment |D_N|², but this auxiliary quantity is
+    preserved for backwards compatibility.
     """
     S0, S1, S2 = dirichlet_S_N_derivatives(T, N, sigma=sigma)
     return 2.0 * (abs(S1) ** 2) + 2.0 * (S2 * S0.conjugate()).real
@@ -166,7 +337,12 @@ def F2_sigma_T(T: float, N: int, sigma: float = 0.5) -> float:
 
 def D_N(T: float, N: int, sigma: float = 0.5) -> complex:
     """
-    D_N(T) = S_N(σ,T) with σ = 1/2 by default.
+    Alias:
+
+        D_N(T) = S_N(σ, T),
+
+    with σ = 1/2 by default. This notation matches the Volume I
+    manuscript where the Dirichlet polynomial is denoted D_N.
     """
     return dirichlet_S_N(T, N, sigma=sigma)
 
@@ -176,8 +352,13 @@ def second_moment_integrand(t: float,
                             H: float,
                             N: int,
                             sigma: float = 0.5) -> float:
-    """
-    g_{λ*}(t) |D_N(T₀ + t)|² — the Bochner side integrand for F̃₂.
+    r"""
+    Second-moment integrand:
+
+        k_H(t) |D_N(T0 + t)|²
+      = g_{λ*}(t, H) |D_N(T0 + t)|².
+
+    This is the time-domain integrand whose integral is F̄₂(T0, H; N).
     """
     g = g_H_sech4(t, H)
     D = D_N(T0 + t, N, sigma=sigma)
@@ -191,11 +372,17 @@ def curvature_F2_bar(T0: float,
                      tau_min: float = None,
                      tau_max: float = None,
                      num_steps: int = 8001) -> float:
-    """
-    F̄₂(T₀,H;N) := F̃₂(T₀;H,N) = ∫ g_{λ*}(t) |D_N(T₀+t)|² dt,
-    using Simpson’s rule.
+    r"""
+    Time-domain second moment:
 
-    This is the same object the Toeplitz form computes.
+        F̄₂(T0, H; N) = ∫ k_H(t) |D_N(T0 + t)|² dt,
+
+    implemented numerically via Simpson’s rule.
+
+    This is the same object that the Toeplitz form computes via the
+    Parseval bridge. The integral limits [tau_min, tau_max] are chosen
+    wide enough (typically ±15H) that truncation error is negligible
+    compared to the target tolerance in the validation suite.
     """
     if tau_min is None:
         tau_min = -15.0 * H
@@ -223,7 +410,14 @@ def curvature_F2_bar(T0: float,
 ########################################
 
 def physical_vector_x(N: int, sigma: float = 0.5) -> List[float]:
-    """x_n = n^{-σ}, used only for convenience / tests."""
+    """
+    Physical coefficient vector:
+
+        x_n = n^{-σ},  1 ≤ n ≤ N.
+
+    This is the coefficient vector used in the Toeplitz quadratic form
+    representation Q_H(N, T0).
+    """
     return [n ** (-sigma) for n in range(1, N + 1)]
 
 
@@ -231,14 +425,16 @@ def phased_quadratic_form(N: int,
                           H: float,
                           T0: float,
                           sigma: float = 0.5) -> float:
-    """
-    Toeplitz form for F̃₂, adapted from parseval_toeplitz_F2:
+    r"""
+    Toeplitz form (frequency-side representation):
 
-        F̃₂(T₀;H,N) =
-          Σ_{m,n} (mn)^{-σ} (m/n)^{-iT₀} ĝ_{λ*}(ln m − ln n),
+        F̃₂(T0; H, N) =
+          ∑_{m,n ≤ N} (mn)^{-σ} (m/n)^{-i T0} k̂_H(log m − log n),
 
-    with ĝ_{λ*} = k_H_hat above. σ=1/2 in the engine; σ kept general
-    here to match your API.
+    where k̂_H is defined in the engine ω-convention.
+
+    This is the finite quadratic form Q_H(N, T0) appearing in the
+    Analyst’s Problem, expressed via k̂_H and the x_n = n^{-σ}.
     """
     T0 = float(T0)
     s_total = 0.0
@@ -250,7 +446,7 @@ def phased_quadratic_form(N: int,
             xn = n ** (-sigma)
             diff = ln_m - ln_n
             g_hat = k_H_hat(diff, H)
-            # (m/n)^(-iT0) = exp(-i T0 (ln m - ln n))
+            # (m/n)^(-i T0) = exp(-i T0 (ln m - ln n))
             phase = cmath.exp(-1j * T0 * diff)
             s_total += xm * xn * g_hat * phase
     return s_total.real
@@ -267,8 +463,14 @@ def parseval_bridge_certificate(T0: float,
                                 tau_min: float = None,
                                 tau_max: float = None,
                                 num_steps: int = 8001) -> float:
-    """
-    Discrepancy F̄₂(T₀,H;N) − F̃₂_toeplitz(T₀;H,N).
+    r"""
+    Parseval bridge discrepancy:
+
+        Δ(T0, H; N) = F̄₂(T0, H; N) − F̃₂(T0; H, N).
+
+    In the Volume I manuscript, the equality F̄₂ = F̃₂ is proved
+    analytically; here we compute Δ numerically as a *certificate*
+    that the code faithfully implements that identity.
     """
     F2_int = curvature_F2_bar(T0, H, N, sigma=sigma,
                               tau_min=tau_min, tau_max=tau_max,
@@ -285,7 +487,13 @@ def parseval_identity_residual(T0: float,
                                tau_max: float = None,
                                num_steps: int = 8001) -> float:
     """
-    |F̄₂ − Toeplitz|; test expects this to be small (< 1e‑2).
+    Absolute Parseval residual:
+
+        |F̄₂(T0, H; N) − F̃₂(T0; H, N)|.
+
+    The validation suite expects this to be small (e.g. < 1e‑2)
+    over its parameter grid, confirming the numerical implementation
+    of the analytic Parseval bridge.
     """
     return abs(parseval_bridge_certificate(T0, H, N, sigma=sigma,
                                            tau_min=tau_min,
@@ -298,11 +506,18 @@ def parseval_identity_residual(T0: float,
 ##############################
 
 def M1_diagonal_term(N: int, H: float, sigma: float = 0.5) -> float:
-    """
-    Diagonal part of F̃₂ Toeplitz form:
+    r"""
+    Diagonal part of the Toeplitz form:
 
-        M1 = Σ_n n^{-2σ} ĝ_{λ*}(0),
-        ĝ_{λ*}(0) = λ* · 2H = 8 / H.
+        M1 = ∑_{n ≤ N} n^{-2σ} k̂_H(0).
+
+    In this ω-convention, ŵ_H(0) = 2H and λ* = 4/H², so
+
+        k̂_H(0) = λ* · ŵ_H(0) = (4/H²) · (2H) = 8/H.
+
+    Hence
+
+        M1 = (8/H) ∑_{n ≤ N} n^{-2σ}.
     """
     lam = lambda_star(H)
     g0 = lam * fourier_w_H(0.0, H)   # = 8/H
@@ -317,10 +532,14 @@ def cross_offdiagonal_term(N: int,
                            H: float,
                            T0: float,
                            sigma: float = 0.5) -> float:
-    """
-    Off‑diagonal part of the Toeplitz form:
+    r"""
+    Off-diagonal contribution to the Toeplitz form:
 
-        Cross = Σ_{m≠n} (mn)^{-σ} (m/n)^{-iT₀} ĝ_{λ*}(ln m − ln n).
+        Cross(T0) = ∑_{m≠n} (mn)^{-σ} (m/n)^{-i T0} k̂_H(log m − log n).
+
+    Together with M1, this reconstructs the full Toeplitz quadratic form:
+
+        Q_H(N, T0) = M1 + Cross(T0).
     """
     T0 = float(T0)
     total = 0.0 + 0.0j
@@ -344,7 +563,12 @@ def QH_from_M1_and_cross(N: int,
                          T0: float,
                          sigma: float = 0.5) -> float:
     """
-    M1 + Cross reproduces the full Toeplitz form.
+    Full Toeplitz form reconstructed as:
+
+        Q_H(N, T0) = M1 + Cross(T0).
+
+    This is the quantity that the Analyst’s Problem requires to be
+    nonnegative for all admissible parameters.
     """
     return M1_diagonal_term(N, H, sigma=sigma) + \
         cross_offdiagonal_term(N, H, T0, sigma=sigma)
@@ -353,10 +577,14 @@ def QH_from_M1_and_cross(N: int,
 def absolute_cross_term(N: int,
                         H: float,
                         sigma: float = 0.5) -> float:
-    """
-    AbsoluteCross = Σ_{m≠n} |(mn)^{-σ}| |ĝ_{λ*}(ln m − ln n)|.
+    r"""
+    Absolute off-diagonal bound:
 
-    This bounds |Cross(T₀)| uniformly in T₀.
+        AbsoluteCross = ∑_{m≠n} |(mn)^{-σ}| · |k̂_H(log m − log n)|.
+
+    This provides a T0‑uniform bound on |Cross(T0)|. It is crude
+    (it ignores phase cancellation) but useful in diagnostics and
+    in bounding worst-case leakage.
     """
     total = 0.0
     for m in range(1, N + 1):
@@ -374,8 +602,13 @@ def absolute_cross_term(N: int,
 
 
 def C_ratio(N: int, H: float, sigma: float = 0.5) -> float:
-    """
-    C = AbsoluteCross / M1, a relative off‑diagonal bound.
+    r"""
+    Relative off-diagonal magnitude:
+
+        C = AbsoluteCross / M1.
+
+    This dimensionless ratio is one diagnostic for how large the
+    off-diagonal sector can be relative to the main diagonal mass.
     """
     M1 = M1_diagonal_term(N, H, sigma=sigma)
     if M1 <= 0.0:
@@ -389,8 +622,17 @@ def C_ratio(N: int, H: float, sigma: float = 0.5) -> float:
 ##############################
 
 def build_toeplitz_matrix(N: int, H: float) -> List[List[float]]:
-    """
-    Phase‑free Toeplitz matrix with entries ĝ_{λ*}(ln m − ln n).
+    r"""
+    Phase‑free Toeplitz matrix with entries
+
+        M_{mn} = k̂_H(log m − log n),
+
+    i.e. the Gram matrix associated with the kernel in the frequency
+    picture, evaluated on the log-integer grid.
+
+    This matrix is real symmetric by construction and, analytically,
+    is positive semi-definite by Bochner’s theorem and the non-negativity
+    of k̂_H.
     """
     M = [[0.0 for _ in range(N)] for _ in range(N)]
     for m in range(1, N + 1):
@@ -399,7 +641,7 @@ def build_toeplitz_matrix(N: int, H: float) -> List[List[float]]:
             ln_n = math.log(n)
             diff = ln_m - ln_n
             M[m - 1][n - 1] = k_H_hat(diff, H)
-    # Symmetrize numerically
+    # Symmetrize numerically to remove roundoff asymmetry.
     for i in range(N):
         for j in range(i + 1, N):
             v = 0.5 * (M[i][j] + M[j][i])
@@ -410,7 +652,12 @@ def build_toeplitz_matrix(N: int, H: float) -> List[List[float]]:
 
 def toeplitz_quadratic_form(M: Sequence[Sequence[float]],
                             x: Sequence[float]) -> float:
-    """x^T M x for real symmetric M."""
+    """
+    x^T M x for a real symmetric matrix M.
+
+    Included as a low-level helper to test PSD behaviour directly
+    with arbitrary vectors x.
+    """
     N = len(x)
     total = 0.0
     for i in range(N):
@@ -423,9 +670,16 @@ def toeplitz_quadratic_form(M: Sequence[Sequence[float]],
 
 def check_kernel_positive_definite(N: int,
                                    H: float) -> Tuple[float, float]:
-    """
-    Approximate (λ_min, λ_max) for the phase‑free Toeplitz matrix,
-    via power iteration and Gershgorin bound.
+    r"""
+    Approximate (λ_min, λ_max) for the phase-free Toeplitz matrix via:
+
+      • Power iteration to estimate λ_max,
+      • Gershgorin-type bound for λ_min.
+
+    This is a numerical diagnostic only; the analytic PSD property
+    follows from the Fourier nonnegativity of k̂_H. The bounds here
+    are used by the validation suite to detect gross implementation
+    errors.
     """
     M = build_toeplitz_matrix(N, H)
     v = [1.0] * N
@@ -471,29 +725,67 @@ def check_kernel_positive_definite(N: int,
 
 class FormalReduction:
     """
-    Minimal API surface required by VALIDATION_SUITE.
+    Volume I — Formal Reduction public API.
+
+    This class provides the minimal surface required by the validation
+    suite and later volumes. It is conceptually tied to the following
+    Volume I interface theorem:
+
+      • Fix H > 0 and N ≥ 1. Let k_H(t) = (6/H²) sech⁴(t/H) and
+        k̂_H(ω) = (ω² + λ*) ŵ_H(ω) with λ* = 4/H² and ŵ_H as above.
+
+      • Define
+            Q_H(N, T0) = ∑_{m,n ≤ N} (mn)^{-σ} (m/n)^{-i T0}
+                           k̂_H(log m − log n),
+
+        with σ = 1/2. Then Q_H(N, T0) also equals the time-domain
+        convolution
+            ∫ k_H(t) |D_N(σ, T0 + t)|² dt.
+
+      • The Analyst’s Problem is: prove Q_H(N, T0) ≥ 0 for all
+        admissible H, N, T0. Volume I shows RH is equivalent to this
+        positivity statement for the canonical kernel k_H.
     """
+
+    # --- Kernel accessors ---
 
     @staticmethod
     def k_H_time(t: float, H: float) -> float:
-        # For the API this is the time‑domain kernel used in Q_H;
-        # we expose g_{λ*}(t) here.
+        """
+        Time-domain kernel k_H(t) = (6/H²) sech⁴(t/H).
+        """
         return g_H_sech4(t, H)
 
     @staticmethod
     def k_H_hat(omega: float, H: float) -> float:
+        """
+        Frequency-side kernel symbol k̂_H(ω).
+        """
         return k_H_hat(omega, H)
+
+    # --- Toeplitz matrices and vectors ---
 
     @staticmethod
     def toeplitz_matrix(N: int, H: float) -> List[List[float]]:
+        """
+        Phase-free Toeplitz matrix with entries k̂_H(log m − log n).
+        """
         return build_toeplitz_matrix(N, H)
 
     @staticmethod
     def physical_vector(N: int, sigma: float = 0.5) -> List[float]:
+        """
+        Physical coefficient vector x_n = n^{-σ}.
+        """
         return physical_vector_x(N, sigma=sigma)
+
+    # --- Core quadratic form and decompositions ---
 
     @staticmethod
     def Q_H(N: int, H: float, T0: float = 0.0, sigma: float = 0.5) -> float:
+        """
+        Full Toeplitz quadratic form Q_H(N, T0).
+        """
         return QH_from_M1_and_cross(N, H, T0, sigma=sigma)
 
     @staticmethod
@@ -504,6 +796,9 @@ class FormalReduction:
                tau_min: float = None,
                tau_max: float = None,
                num_steps: int = 8001) -> float:
+        """
+        Time-domain second moment F̄₂(T0, H; N).
+        """
         return curvature_F2_bar(T0, H, N, sigma=sigma,
                                 tau_min=tau_min,
                                 tau_max=tau_max,
@@ -511,19 +806,33 @@ class FormalReduction:
 
     @staticmethod
     def M1(N: int, H: float, sigma: float = 0.5) -> float:
+        """
+        Diagonal mass term M1.
+        """
         return M1_diagonal_term(N, H, sigma=sigma)
 
     @staticmethod
     def Cross(T0: float, N: int, H: float, sigma: float = 0.5) -> float:
+        """
+        Off-diagonal interaction Cross(T0).
+        """
         return cross_offdiagonal_term(N, H, T0, sigma=sigma)
 
     @staticmethod
     def AbsoluteCross(N: int, H: float, sigma: float = 0.5) -> float:
+        """
+        AbsoluteCross = ∑_{m≠n} |(mn)^{-σ}| |k̂_H(log m − log n)|.
+        """
         return absolute_cross_term(N, H, sigma=sigma)
 
     @staticmethod
     def C_ratio(N: int, H: float, sigma: float = 0.5) -> float:
+        """
+        Relative off-diagonal magnitude C = AbsoluteCross / M1.
+        """
         return C_ratio(N, H, sigma=sigma)
+
+    # --- Parseval bridge diagnostics ---
 
     @staticmethod
     def parseval_residual(T0: float,
@@ -533,11 +842,19 @@ class FormalReduction:
                           tau_min: float = None,
                           tau_max: float = None,
                           num_steps: int = 8001) -> float:
+        """
+        Absolute Parseval residual |F̄₂ − F̃₂|.
+        """
         return parseval_identity_residual(T0, H, N, sigma=sigma,
                                           tau_min=tau_min,
                                           tau_max=tau_max,
                                           num_steps=num_steps)
 
+    # --- Kernel PSD diagnostics ---
+
     @staticmethod
     def kernel_psd_bounds(N: int, H: float) -> Tuple[float, float]:
+        """
+        Approximate (λ_min, λ_max) for the kernel Toeplitz matrix.
+        """
         return check_kernel_positive_definite(N, H)
