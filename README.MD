@@ -3,11 +3,11 @@
 
 **Jason Mullings BSc · Independent Research · 2026**
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19038824.svg)](https://doi.org/10.5281/zenodo.19038824)  
-[![GitHub](https://img.shields.io/badge/GitHub-TheAnalystsProblem-blue)](https://github.com/jmullings/TheAnalystsProblem)  
-[![YouTube](https://img.shields.io/badge/YouTube-TheAnalystsProblem-red)](https://www.youtube.com/@TheAnalystsProblem)  
-[![E-Book](https://img.shields.io/badge/Amazon-E--Book-orange)](https://www.amazon.com/s?k=%22The+analyst%E2%80%99s+problem%22)  
-[![Patreon](https://img.shields.io/badge/Patreon-Support-red)](https://www.patreon.com/posts/jason-mullings-155411204)  
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19038824.svg)](https://doi.org/10.5281/zenodo.19038824)<br>
+[![GitHub](https://img.shields.io/badge/GitHub-TheAnalystsProblem-blue)](https://github.com/jmullings/TheAnalystsProblem)<br>
+[![YouTube](https://img.shields.io/badge/YouTube-TheAnalystsProblem-red)](https://www.youtube.com/@TheAnalystsProblem)<br>
+[![E-Book](https://img.shields.io/badge/Amazon-E--Book-orange)](https://www.amazon.com/s?k=%22The+analyst%E2%80%99s+problem%22)<br>
+[![Patreon](https://img.shields.io/badge/Patreon-Support-red)](https://www.patreon.com/posts/jason-mullings-155411204)
 
 ---
 
@@ -29,7 +29,7 @@ The program reduces the Riemann Hypothesis to a single, self-contained positivit
 
 ## The Central Claim
 
-Let $k_H(t) = \frac{6}{H^2} \text{sech}^4(t/H)$ and $D_N(\sigma, T) = \sum_{n=1}^{N} n^{-\sigma} e^{-iT\ln n}$.
+Let $k_H(t) = \frac{6}{H^2} \mathrm{sech}^4(t/H)$ and $D_N(\sigma, T) = \sum_{n=1}^{N} n^{-\sigma} e^{-iT\ln n}$.
 
 Define the curvature quadratic form at the critical line $\sigma = 1/2$:
 
@@ -78,13 +78,13 @@ The classical Montgomery–Vaughan Large Sieve gives $|O_H| \leq O(N \log N)$, w
 
 $$|O_H(N, T_0)| \leq C(H, T_0) \cdot D_H(N) \quad \text{for all } N \geq 1$$
 
-The lemma exploits the exponential decay $k_H(t) \sim e^{-4|t|/H}$ — the sech⁴ kernel vanishes away from the diagonal, reducing the effective off-diagonal range from $[1,N]^2$ to a band of width $O(H^{-1})$, decoupling $N$ from the bound. Three analytic cases cover the full parameter space:
+The lemma exploits the exponential decay $k_H(t) \sim e^{-4|t|/H}$ — the $\mathrm{sech}^4$ kernel vanishes away from the diagonal, reducing the effective off-diagonal range from $[1,N]^2$ to a band of width $O(H^{-1})$, decoupling $N$ from the bound. Three analytic cases cover the full parameter space:
 
 - **Case A** ($|T_0| \approx 0$): All phases $\approx 1$, giving $Q_H \geq D_H$ trivially.
 - **Case B** (moderate $|T_0|$): Non-stationary phase / smooth windowing yields decay $\sim 1/(|T_0|N)$.
 - **Case C** (large $|T_0|$): Stationary phase / integration by parts yields decay $\sim 1/|T_0|$.
 
-**Empirically confirmed:** $C_{\text{emp}} \leq 0.77 < 1$ across all tested configurations with $H \leq 1$, $N \leq 5000$.
+**Empirically confirmed:** $C_{\mathrm{emp}} \leq 0.77 < 1$ across all tested configurations with $H \leq 1$, $N \leq 5000$.
 
 **Theorem XII.1 (Conditional):** Assuming Lemma XII.1, then $Q_H(N, T_0) \geq (1 - C) \cdot D_H(N) > 0$ for all $N \geq 1$ and $T_0 \in \mathbb{R}$. Together with the Volume I reduction, this implies the Riemann Hypothesis.
 
@@ -98,9 +98,9 @@ All results are achieved with `mpmath.dps = 80` (80-decimal precision) and expli
 
 For every $(H, T_0, N)$ in the 216-point deterministic grid:
 
-$$Q_{\text{lower\_bound}} = Q_{\text{trunc}} - E_{\text{total}} > 0$$
+$$Q_{\mathrm{lb}} = Q_{\mathrm{trunc}} - E_{\mathrm{total}} > 0$$
 
-where $E_{\text{total}} = E_{\text{tail}} + E_{\text{quad}} + E_{\text{spec}} + E_{\text{num}}$, each term bounded explicitly. $E_{\text{total}}$ is 3–4 orders of magnitude below $Q_{\text{trunc}}$ throughout.
+where $E_{\mathrm{total}} = E_{\mathrm{tail}} + E_{\mathrm{quad}} + E_{\mathrm{spec}} + E_{\mathrm{num}}$, each term bounded explicitly. $E_{\mathrm{total}}$ is 3–4 orders of magnitude below $Q_{\mathrm{trunc}}$ throughout.
 
 | Test Set | Result |
 |----------|--------|
@@ -113,12 +113,12 @@ where $E_{\text{total}} = E_{\text{tail}} + E_{\text{quad}} + E_{\text{spec}} + 
 | Metric | Value |
 |--------|-------|
 | Configurations tested | 20 |
-| Computationally certified ($Q_{\text{lb}} > 0$) | **20/20** ✅ |
+| Computationally certified ($Q_{\mathrm{lb}} > 0$) | **20/20** ✅ |
 | Conditionally closed (Lemma XII.1, $H \leq 1$) | **14/20** ✅ |
 | Remaining ($H > 1$, pending Lemma XII.1 extension) | 6/20 ⏳ |
-| Min $Q_{\text{lower\_bound}}$ | 3.922 |
-| Min margin (% of $Q_{\text{trunc}}$) | 99.95% |
-| Max $E_{\text{total}}$ | 2.68 × 10⁻³ |
+| Min $Q_{\mathrm{lb}}$ | 3.922 |
+| Min margin (% of $Q_{\mathrm{trunc}}$) | 99.95% |
+| Max $E_{\mathrm{total}}$ | 2.68 × 10⁻³ |
 
 ---
 
@@ -150,9 +150,9 @@ where $E_{\text{total}} = E_{\text{tail}} + E_{\text{quad}} + E_{\text{spec}} + 
 | Vol. | Title | Status | Key Result |
 |------|-------|--------|------------|
 | **I** | Formal Reduction | ✅ Complete | RH $\iff Q_H \geq 0$ |
-| **II** | Kernel Stabilisation | ✅ Complete | $k_H = (6/H^2)\text{sech}^4(t/H)$; $\lambda^* = 4/H^2$ unique |
+| **II** | Kernel Stabilisation | ✅ Complete | $k_H = (6/H^2)\mathrm{sech}^4(t/H)$; $\lambda^* = 4/H^2$ unique |
 | **III** | Quadratic Form Decomp. | ✅ Complete | $Q_H = D_H + O_H$; Hard Algebraic Identity |
-| **IV** | Spectral Expansion | ✅ Complete | Parseval bridge certified; $Q^{\text{spec}}$ positive at $\sigma = 1/2$ |
+| **IV** | Spectral Expansion | ✅ Complete | Parseval bridge certified; $Q^{\mathrm{spec}}$ positive at $\sigma = 1/2$ |
 | **V** | Dirichlet Poly. Control | ✅ Complete | Smooth windowing; Bochner positivity basin |
 | **VI** | Large Sieve Bridge | ✅ Complete | MV inequality with explicit constants; Gap G1 precisely identified |
 | **VII** | Euler–Maclaurin Control | ✅ Complete | Sum-to-integral; all Bernoulli terms at 80-decimal |
@@ -169,13 +169,13 @@ where $E_{\text{total}} = E_{\text{tail}} + E_{\text{quad}} + E_{\text{spec}} + 
 ### Proved (T1/T2) — Unconditional within stated assumptions
 
 - ✅ The reduction RH $\iff Q_H \geq 0$ (Volume I, T2 — Weil explicit formula)
-- ✅ $k_H(t) = (6/H^2)\text{sech}^4(t/H) > 0$ with $\hat{k}_H(\xi) \geq 0$ (Volume II, T1)
+- ✅ $k_H(t) = (6/H^2)\mathrm{sech}^4(t/H) > 0$ with $\hat{k}_H(\xi) \geq 0$ (Volume II, T1)
 - ✅ Unique minimal stabilisation $\lambda^* = 4/H^2$ (Volume II, T1)
 - ✅ Exact norms: $\|k_H\|_{L^1} = 8/H$, $\|k_H\|_{L^2}^2 = 1152/(35H^3)$ (Volume II, T1)
 - ✅ $Q_H = D_H + O_H$, $D_H > 0$ unconditionally (Volume III, T1)
 - ✅ All analytic tools with explicit constants — no hidden $O(\cdot)$ (Volumes IV–IX, T2)
 - ✅ $Q_H(N, T_0) > 0$ rigorously certified on 216-point deterministic grid (Volume XI, T2)
-- ✅ Four-term explicit error budget: $E_{\text{total}} \ll Q_{\text{trunc}}$ at every grid point (Volume XI, T2)
+- ✅ Four-term explicit error budget: $E_{\mathrm{total}} \ll Q_{\mathrm{trunc}}$ at every grid point (Volume XI, T2)
 
 ### Pending — Lemma XII.1 and peer review
 
@@ -299,11 +299,11 @@ All random seeds are fixed (`RNG = random.Random(123456789)`). All precision bou
 
 ## The Metaphor, Precisely Stated
 
-**Layperson:** Volume I carves the shape of the key and designs the lock. Volume II plates the key with a frictionless, dual-sided sech⁴ coating that cannot warp. Volumes III–X verify every groove. Volume XI stress-tests the key at 216 positions and 300 random positions; it holds in every case.
+**Layperson:** Volume I carves the shape of the key and designs the lock. Volume II plates the key with a frictionless, dual-sided $\mathrm{sech}^4$ coating that cannot warp. Volumes III–X verify every groove. Volume XI stress-tests the key at 216 positions and 300 random positions; it holds in every case.
 
 **What remains:** You cannot inspect every groove on an infinitely long key by hand. Lemma XII.1 is the structural guarantee that the coating is so uniformly applied that no hidden snag can appear further down the shaft. Once that guarantee is formally proved — that the phase-averaged kernel localisation holds uniformly for all $N$ — the key turns, the tumbler clicks, and the Riemann Hypothesis is solved.
 
-**Mathematician:** Establishing $|O_H(N, T_0)| \leq C(H, T_0) \cdot D_H(N) < D_H(N)$ uniformly in $N$ and $T_0$, via the exponential localisation of the sech⁴ kernel (bandwidth $O(H^{-1})$ vs full range $[1,N]^2$), closes Gap G1. By Volume I's reduction, this implies $\zeta(1/2 + it) \neq 0$ for all $t \in \mathbb{R}$.
+**Mathematician:** Establishing $|O_H(N, T_0)| \leq C(H, T_0) \cdot D_H(N) < D_H(N)$ uniformly in $N$ and $T_0$, via the exponential localisation of the $\mathrm{sech}^4$ kernel (bandwidth $O(H^{-1})$ vs full range $[1,N]^2$), closes Gap G1. By Volume I's reduction, this implies $\zeta(1/2 + it) \neq 0$ for all $t \in \mathbb{R}$.
 
 ---
 
@@ -357,7 +357,7 @@ This is an open, independent research program. If you find it valuable:
 
 *"The scaffolding is built. The kernel is stabilised. The form is decomposed. The spectral bridge is certified. The Dirichlet engine is bounded. The sieve constants are explicit. The Euler–Maclaurin errors are tracked. The positivity operator is manifest. The convolution is positive. The edge cases are uniform. The industrial-strength computational suite has certified positivity across the full deterministic grid.*
 
-*One condition remains: that the exponential decay of the sech⁴ kernel localises the off-diagonal sum to a band of width $O(H^{-1})$, decoupling N from the bound.*
+*One condition remains: that the exponential decay of the $\mathrm{sech}^4$ kernel localises the off-diagonal sum to a band of width $O(H^{-1})$, decoupling $N$ from the bound.*
 
 *The machine does not lie. The mathematics is honest. The gap is named and measured.*
 
