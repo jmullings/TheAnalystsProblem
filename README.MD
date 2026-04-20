@@ -364,3 +364,59 @@ This is an open, independent research program. If you find it valuable:
 *The key is cut. The lock is designed. The coating is applied. What remains is the proof that the key turns all the way."*
 
 — Jason Mullings BSc, 2026
+# Volume XII: Resolving Gap G1 – The Localized Large Sieve Constant
+
+This directory contains the theoretical and empirical investigation into resolving **Gap G1** of the proof program. The goal is to establish that the diagonal mass of the spectral quadratic form strictly dominates the off-diagonal interference as $N \to \infty$.
+
+## The Core Problem
+
+We need to prove uniformly for all $N, H, T_0$:
+$$ D_H(N) - |O_H(N,T_0)| > 0 $$
+
+Where:
+*   $D_H(N) = \frac{6}{H^2}\sum_{n=1}^N \frac{1}{n}$
+*   $O_H(N,T_0) = \sum_{m\ne n} \frac{1}{\sqrt{mn}} k_H(\ln m - \ln n) e^{-iT_0(\ln m - \ln n)}$
+
+The traditional Montgomery-Vaughan large sieve bound fails here because it yields $|O_H| \sim N \log N$, whereas the diagonal grows only as $D_H \sim \log N$. The ratio $\rho = \frac{|O_H|}{D_H} \to \infty$ asymptotically under this crude global bound.
+
+## The Resolution Strategy: Kernel Localization
+
+The sech⁴ kernel, $k_H(t) = \frac{6}{H^2}\text{sech}^4(t/H)$, decays exponentially. We exploit this to replace the global density bound $O(N)$ with a local density bound governed by the kernel. 
+
+This requires formulating a **Kernel-Localised Weighted Large Sieve Bound**:
+$$ \Big|\sum_{m \ne n \le N} a_m \bar{a}_n \, k_H(\log m - \log n)\Big| \le C(H) \sum_{n=1}^N |a_n|^2 $$
+Where we must prove that the constant $C(H) < k_H(0) = 6/H^2$.
+
+## Empirical Validation and Regime Discovery
+
+The script `empirical_large_sieve_constant_windowed.py` investigates this localized bound computationally.
+
+**Key Findings:**
+
+1.  **The Scaling Law:** The empirical data confirms the localized bound scaling. For a fixed $H$ and $T_0$, the ratio follows:
+    $$ \frac{|O_H|}{D_H} \approx \frac{A}{\log N} + B $$
+    Asymptotically, the ratio decays, confirming that the diagonal dominates.
+2.  **The Finite-N Anomaly:** At small $N$, the kernel couples a large fraction of pairs, and oscillations haven't averaged out. This leads to constructive interference spikes where the ratio can exceed 1.
+3.  **The Two Regimes:**
+    *   **Cancellation Regime:** Lower zeros (or smaller $H$). The ratio decays monotonically with $N$, and closure is achieved quickly.
+    *   **Resonant Regime:** Higher zeros. The kernel probes a narrow log-window where spacings are $\sim 1/n$. Phases become locally correlated rather than random, leading to phase-locking and coherent reinforcement. The ratio grows and plateaus, often bounding away from 1. 
+
+## Refined Lemma Statement
+
+The empirical data demonstrates that the initial claim ("For all $N$, $|O_H|/D_H < 1$") is too strong due to the resonant regime. The correct, empirically supported statement is:
+
+**For all $T_0$, for all $H > 0$, there exists $N_0(H, T_0)$ such that for all $N \ge N_0$:**
+$$ \frac{|O_H|}{D_H} < 1 $$
+
+## The Infinite Series Perspective
+
+To move the proof forward, the problem must be reframed as an infinite series.
+
+Instead of an additive coordinate $t = \log m - \log n$, we use the multiplicative coordinate $r = m/n$. The off-diagonal term becomes a multiplicative Dirichlet-type series:
+$$ O_H(T_0) = \sum_{r \ne 1} C_N(r) K_H(r) r^{-iT_0} $$
+where $C_N(r)$ is the smoothed multiplicative correlation function.
+
+The true infinite constant we must bound is the Fourier mass of these multiplicative correlations near $r=1$:
+$$ B(H, T_0) = \limsup_{N \to \infty} \frac{1}{k_H(0) \sum |a_n|^2} \sum_{r \ne 1} C_N(r) K_H(r) r^{-iT_0} $$
+
+The next analytic step requires expanding $r = 1 + u/H$ and transitioning from number theory to harmonic analysis to evaluate this localized Fourier transform.
