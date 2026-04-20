@@ -6,88 +6,56 @@ A Program Toward the Riemann Hypothesis
 Jason Mullings BSC
 
 
-
-
-
 STATUS OF THIS VOLUME
 ---------------------
 
-
-
 Volume XII is the final assembly and certification layer of the program.
 It:
-
-
 
   1. Collects all analytically certified bounds from Volumes I–XI.
   2. States the reduction chain from RH to the Analyst's Problem.
   3. Runs a combined certification sweep with explicit error accounting.
   4. Quantifies the historical diagonal-dominance gap (Gap G1).
-  5. Incorporates Lemma XII.1∞ (Infinite-Series Mean-Value Form) together
-     with its finite–N numerical harness VOLUME_XII_LEMMA_GAP, promoting
-     Lemma XII.1 from a conditional, empirically guided claim to an
-     analytically formalized finite-N mean-value statement with
-     B_analytic(H,w;N) < 1 in the key regime.
+  5. Introduces Lemma XII.1 (Phase-Averaged Kernel Localization) as a
+     *conditional* analytic closure mechanism for Gap G1, supported by
+     strong computational evidence but not fully formalised here.
 
-
-
-This file therefore presents a computationally complete, analytically
-closed proof layer modulo the finite-N analytic mean-value bound:
-
-
-
-  - All tested configurations satisfy Q_H > 0 with rigorous error bounds.
-  - The finite–N mean-square constants C(H;N,T) exhibit a decaying law
-    with asymptotic behaviour consistent with B_analytic(H,w;N) < 1
-    for the main regime.
-  - The corrected analytic assessment of B_analytic(H,w;N) via grouping
-    of reduced fractions r = p/q confirms B_analytic(H,w;N) < 1 for
-    moderate N, while the empirical C(H;N,T) stays strictly below it
-    because of additional destructive interference at finite T.
-
-
-
-The remaining tasks are exposition and external peer review.
+This file therefore presents a **computationally complete, analytically
+conditional proof-candidate**: all tested configurations satisfy Q_H > 0
+with rigorous error bounds; full analytic closure rests on Lemma XII.1.
 """
 
-
 from __future__ import annotations
-
 
 import math
 import time
 from dataclasses import dataclass, field
-from typing import List, Tuple, Callable, Dict, Any, Optional
-
+from typing import List, Tuple
 
 import mpmath as mp
 import numpy as np
 import os
 import sys
 
-
 # ---------------------------------------------------------------------------
 # Import chain — every volume's interface
 # ---------------------------------------------------------------------------
-
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(THIS_DIR, "..", ".."))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-
 from VOLUME_V_DIRICHLET_CONTROL.VOLUME_V_DIRICHLET_CONTROL_PROOF.VOLUME_V_DIRICHLET_CONTROL import (
     DirichletConfig,
 )
 from VOLUME_IX_CONVOLUTION_POSITIVITY.VOLUME_IX_CONVOLUTION_POSITIVITY_PROOF.VOLUME_IX_CONVOLUTION_POSITIVITY import (
-    k_H as k_H_volume_ix,
+    k_H,
     w_H,
     positive_floor,
     verify_net_positivity,
     compare_time_freq_domains,
 )
-
 
 # Volume XI rigorous harness
 from VOLUME_XI_COMPUTATIONAL.VOLUME_XI_COMPUTATIONAL_PROOF.VOLUME_XI_COMPUTATIONAL import (
@@ -101,40 +69,15 @@ from VOLUME_XI_COMPUTATIONAL.VOLUME_XI_COMPUTATIONAL_PROOF.VOLUME_XI_COMPUTATION
     XIProofResult,
 )
 
-
-# Volume XII Lemma Gap harness (finite–N + analytic mean-value)
-from VOLUME_XII_LEMMA_GAP import (  # type: ignore
-    run_scaling_experiment_example,
-    infinite_series_constant_analytic,
-    generate_coefficients_weighted,
-)
-
-
 mp.mp.dps = 80  # proof-grade precision throughout
-
 
 # ---------------------------------------------------------------------------
 # SECTION 1: Fundamental constants from Volume II
 # ---------------------------------------------------------------------------
 
-
 def lambda_star(H: float) -> float:
     """λ* = 4/H² — unique minimal stabilisation constant (Volume II)."""
     return 4.0 / (H * H)
-
-
-def k_H(t: float, H: float) -> float:
-    """
-    Local SECH^4 kernel:
-
-        k_H(t) = (6/H²) sech⁴(t/H).
-
-    For consistency, we alias the Volume IX implementation when desired.
-    """
-    # direct expression to keep this volume self-contained, while
-    # maintaining consistency with Volume IX and VOLUME_XII_LEMMA_GAP.
-    s = 1.0 / math.cosh(t / H)
-    return (6.0 / (H * H)) * (s ** 4)
 
 
 def k_H_L1(H: float) -> float:
@@ -154,11 +97,9 @@ def kernel_tail_bound(H: float, L: float) -> float:
     """
     return kernel_tail_mass_exponential(H, L)
 
-
 # ---------------------------------------------------------------------------
 # SECTION 2: Diagonal mass (Volume III)
 # ---------------------------------------------------------------------------
-
 
 def diagonal_mass_D_H(N: int, H: float, sigma: float = 0.5) -> float:
     """
@@ -175,11 +116,9 @@ def harmonic_approx(N: int) -> float:
     """H_N ≈ log(N) + γ (Euler–Mascheroni)."""
     return math.log(N) + 0.5772156649015328606
 
-
 # ---------------------------------------------------------------------------
 # SECTION 3: Off-diagonal MV bound (Volume VI, for diagnostics)
 # ---------------------------------------------------------------------------
-
 
 def off_diagonal_MV_bound(N: int, H: float, sigma: float = 0.5) -> float:
     """
@@ -208,9 +147,8 @@ def diagonal_dominance_ratio(N: int, H: float, sigma: float = 0.5) -> float:
     """
     ρ(N, H) = D_H(N) / |O_H|_MV_bound.
 
-    Used only in the historical MV gap table; the analytic mean-value
-    lemma and finite-N constant B_analytic(H,w;N) replace this as the
-    modern closure mechanism.
+    Used only in the historical MV gap table; Lemma XII.1 replaces this
+    as the proposed analytic closure mechanism.
     """
     D = diagonal_mass_D_H(N, H, sigma)
     O_bound = off_diagonal_MV_bound(N, H, sigma)
@@ -218,108 +156,9 @@ def diagonal_dominance_ratio(N: int, H: float, sigma: float = 0.5) -> float:
         return float("inf")
     return D / O_bound
 
-
 # ---------------------------------------------------------------------------
-# SECTION 4: Lemma XII.1∞ — Analytic Mean-Value Form (finite-N)
+# SECTION 4: Lemma XII.1 — Phase-Averaged Kernel Localization (CONDITIONAL)
 # ---------------------------------------------------------------------------
-
-
-def bump_window_unit(x: float) -> float:
-    """
-    C^∞ bump on [0,1] for the analytic mean-value harness:
-
-        w(x) = exp(-1/(1-(2x-1)^2)) for x in (0,1),
-             = 0 otherwise.
-
-    This is the same profile as in VOLUME_XII_LEMMA_GAP, restricted to [0,1].
-    """
-    if x <= 0.0 or x >= 1.0:
-        return 0.0
-    y = 2.0 * x - 1.0
-    if abs(y) >= 1.0:
-        return 0.0
-    return math.exp(-1.0 / (1.0 - y * y))
-
-
-@dataclass
-class InfiniteSeriesAssessment:
-    """
-    Container for the analytic finite-N mean-value assessment:
-
-      - B_val: numerical value of B_analytic(H,w;N) via the correct
-               grouping-by-reduced-fraction formula.
-      - params: dictionary of parameters used (H, N_analytic, etc.).
-    """
-    B_val: float
-    params: Dict[str, Any]
-
-
-def compute_infinite_series_assessment(
-    H: float = 0.5,
-    N_analytic: int = 100,
-    w: Optional[Callable[[float], float]] = None,
-    B_trunc: float = 3.5,
-) -> InfiniteSeriesAssessment:
-    """
-    Wrap VOLUME_XII_LEMMA_GAP.infinite_series_constant_analytic to compute
-    a certified numerical B_analytic(H,w;N) for the canonical bump window.
-
-    MATHEMATICAL CORRECTION:
-    The previous C_inf-based infinite-series construction diverged as
-    n_max → ∞ and did not coincide with the finite-N mean-square of O_H.
-    This function instead uses the CORRECT analytic finite-N formula
-
-        (1/T) ∫_T^{2T} |O_H(N,T0)|² dT0
-          = ∑_{reduced (p,q), p≠q, max(p,q)≤N}
-              [ k_H(log(p/q)) * ∑_{k ≤ N/max(p,q)} a_{kp} a_{kq} ]²,
-
-    and defines
-
-        B_analytic(H,w;N) = sqrt(mean-value sum) / D_H(N),
-
-    with a_n = n^{-1/2} w(n/N). This groups off-diagonal pairs by their
-    reduced ratio and exactly matches the Dirichlet mean-value identity.
-
-    Parameters
-    ----------
-    H : float
-        Kernel bandwidth.
-    N_analytic : int
-        Dirichlet truncation N used in the analytic grouping formula.
-        For H = 0.5 and bump window, N_analytic in [50, 200] keeps
-        B_analytic(H,w;N) below 1, in line with the lemma-gap logs.
-    w : callable or None
-        Window function; defaults to bump_window_unit on [0,1].
-    B_trunc : float
-        Bandwidth cutoff |log(p/q)| ≤ B_trunc * H used inside the harness.
-    """
-    if w is None:
-        def w_on_unit(x: float) -> float:
-            return bump_window_unit(x)
-    else:
-        w_on_unit = w
-
-    B_val = infinite_series_constant_analytic(
-        H=H,
-        N=N_analytic,
-        w=w_on_unit,
-        B_trunc=B_trunc,
-    )
-    return InfiniteSeriesAssessment(
-        B_val=B_val,
-        params={
-            "H": H,
-            "N_analytic": N_analytic,
-            "B_trunc": B_trunc,
-            "window": "bump" if w is None else "custom",
-        },
-    )
-
-
-# ---------------------------------------------------------------------------
-# SECTION 5: Lemma XII.1 — legacy phase-averaged (kept as diagnostic only)
-# ---------------------------------------------------------------------------
-
 
 def off_diagonal_phase_averaged_bound(
     N: int,
@@ -329,11 +168,14 @@ def off_diagonal_phase_averaged_bound(
     T_cut: float | None = None,
 ) -> Tuple[float, str]:
     """
-    Legacy empirical phase-averaged estimate for |O_H|/D_H using smooth windowing.
+    Empirical phase-averaged estimate for |O_H|/D_H using smooth windowing.
 
-    This function is retained as a *diagnostic* and for historical context.
-    The actual analytic closure of Gap G1 is now driven by the corrected
-    finite-N mean-value constant B_analytic(H,w;N) < 1.
+    This function *does not* enter the rigorous error budget. It is used
+    to support Lemma XII.1 as a conditional analytic claim, by showing
+    that for H ≤ 1.0 and |T0| away from 0, the ratio |O_H|/D_H is
+    empirically < 1 across a grid.
+
+    Returns (C_emp_float, case_label).
     """
     if T_cut is None:
         T_cut = 100.0 / H  # heuristic scale with kernel width
@@ -357,6 +199,8 @@ def off_diagonal_phase_averaged_bound(
         for j in range(i + 1, N):
             dt = ln_i - log_n[j]
             k_val = k_H(dt, H)
+            # No early break: kernel is strictly positive; if a numerical
+            # cut-off is needed, it should be imposed explicitly in |dt|.
             cos_term = math.cos(T0 * dt)
             term = 2.0 * amp_i * weighted_amp[j] * k_val * cos_term
             O_val += term
@@ -378,7 +222,7 @@ def off_diagonal_phase_averaged_bound(
     return C_emp_float, case
 
 
-def is_gap_g1_closed_legacy(
+def is_gap_g1_closed(
     H: float,
     T0: float,
     N: int,
@@ -386,38 +230,44 @@ def is_gap_g1_closed_legacy(
     T_cut: float | None = None,
 ) -> Tuple[bool, str, float]:
     """
-    Legacy conditional Gap G1 closure check for a single (H, T0, N).
+    Conditional Gap G1 closure check for a single (H, T0, N).
 
-    Retained for comparison against the new finite-N analytic closure.
+    Interpretation:
+      - For H > 1.0: we do *not* claim analytic closure (returns False).
+      - For H ≤ 1.0 and |T0| < δ: we rely on trivial positivity at T0=0.
+      - For H ≤ 1.0 and |T0| ≥ δ: we use the empirical phase-averaged
+        ratio as evidence toward Lemma XII.1, but do not treat it as a
+        formal proof in this code.
+
+    Returns (closed_flag, reason, C_emp_float).
     """
     if H > 1.0:
-        return False, "H > 1.0: legacy Lemma XII.1 scope", float("inf")
+        return False, "H > 1.0: Lemma XII.1 (conditional)", float("inf")
 
+    # Case A: T0 very close to 0 — trivial positivity of Q_H(N,0) ≥ D_H(N)
     if abs(T0) < delta:
-        return True, "Legacy Lemma XII.1 (A: T0≈0, trivial positivity)", 0.0
+        return True, "Lemma XII.1 (A: T0≈0, trivial positivity; analytic)", 0.0
 
+    # Cases B/C: use phase-averaged surrogate as *evidence*
     C_emp, case = off_diagonal_phase_averaged_bound(N, H, T0, T_cut=T_cut)
 
     if C_emp < 1.0:
-        reason = f"Legacy Lemma XII.1 (conditional {case}): C_emp={C_emp:.4f} < 1"
+        reason = f"Lemma XII.1 (conditional {case}): C_emp={C_emp:.4f} < 1"
         return True, reason, C_emp
     else:
-        reason = f"Legacy Lemma XII.1 (conditional {case}): C_emp={C_emp:.4f} ≥ 1"
+        reason = f"Lemma XII.1 (conditional {case}): C_emp={C_emp:.4f} ≥ 1"
         return False, reason, C_emp
 
-
 # ---------------------------------------------------------------------------
-# SECTION 6: Combined certification record (Volume XI + XII.1∞ finite-N)
+# SECTION 5: Combined certification record (Volume XI + conditional XII.1)
 # ---------------------------------------------------------------------------
-
 
 @dataclass
 class XII_CertificationResult:
     """
     Full certification record for a single (H, T0, N) configuration.
 
-    Synthesises Volumes II, III, VI, XI and the finite-N mean-value
-    Lemma XII.1∞ via B_analytic(H,w;N).
+    Synthesises Volumes II, III, VI, XI and the conditional Lemma XII.1.
     """
     H: float
     T0: float
@@ -444,19 +294,14 @@ class XII_CertificationResult:
     E_total: float = 0.0
     Q_lower_bound: float = 0.0
 
-    # Legacy Lemma XII.1 (diagnostic only)
-    C_emp_legacy: float = 0.0
-    legacy_gap_g1_closed: bool = False
-    legacy_case: str = ""
-
-    # Finite-N analytic mean-value (Lemma XII.1∞)
-    B_series: float = 0.0
-    series_params: Dict[str, Any] = field(default_factory=dict)
-    gap_g1_closed_series: bool = False
+    # Lemma XII.1 (conditional)
+    C_emp: float = 0.0
+    gap_g1_closed_conditional: bool = False
+    lemma_xii_case: str = ""
 
     # Net verdict
     computationally_certified: bool = False
-    analytically_closed: bool = False
+    analytically_closed_conditional: bool = False
     notes: str = ""
 
     @property
@@ -466,11 +311,9 @@ class XII_CertificationResult:
             return 0.0
         return 100.0 * self.Q_lower_bound / self.Q_trunc
 
-
 # ---------------------------------------------------------------------------
-# SECTION 7: Single-configuration certification
+# SECTION 6: Single-configuration certification
 # ---------------------------------------------------------------------------
-
 
 def certify_full(H: float, T0: float, N: int, dps: int = 80) -> XII_CertificationResult:
     """
@@ -478,8 +321,7 @@ def certify_full(H: float, T0: float, N: int, dps: int = 80) -> XII_Certificatio
 
     - Uses Volumes II, III, VI for structural/analytic bounds.
     - Uses Volume XI for rigorous Q_lower_bound certification.
-    - Uses the finite-N analytic Lemma XII.1∞ to assess Gap G1 closure via
-      B_analytic(H,w;N) < 1, computed from VOLUME_XII_LEMMA_GAP.
+    - Uses Lemma XII.1 (conditional) to assess Gap G1 status.
     """
     L = adaptive_L(H)
     cfg: DirichletConfig = make_config(N)
@@ -496,41 +338,12 @@ def certify_full(H: float, T0: float, N: int, dps: int = 80) -> XII_Certificatio
     result.O_H_MV_bound = off_diagonal_MV_bound(N, H)
     result.dominance_ratio_analytic = diagonal_dominance_ratio(N, H)
 
-    # Legacy Lemma XII.1 (for comparison only)
-    legacy_closed, legacy_reason, legacy_C = is_gap_g1_closed_legacy(H, T0, N)
-    result.C_emp_legacy = legacy_C
-    result.legacy_gap_g1_closed = legacy_closed
-    result.legacy_case = legacy_reason
-
-    # Finite-N analytic assessment (Lemma XII.1∞) — done once per H globally
-    global _B_SERIES_CACHE
-    try:
-        _ = _B_SERIES_CACHE
-    except NameError:
-        _B_SERIES_CACHE = {}
-
-    if H not in _B_SERIES_CACHE and H <= 1.0:
-        # Corrected finite-N analytic assessment via grouping formula.
-        # Use N_analytic=100 for H≤1 to probe B_analytic(H,w;N) in the
-        # main proof regime; for H close to 1 this may legitimately
-        # exceed 1, which is an expected boundary behaviour.
-        series_assessment = compute_infinite_series_assessment(
-            H=H,
-            N_analytic=100,
-            B_trunc=3.5,
-        )
-        _B_SERIES_CACHE[H] = series_assessment
-    elif H not in _B_SERIES_CACHE:
-        # Outside formal scope H ≤ 1: mark as not-closed analytically.
-        _B_SERIES_CACHE[H] = InfiniteSeriesAssessment(
-            B_val=float("inf"),
-            params={"H": H, "note": "H>1 outside Lemma XII.1∞ scope"},
-        )
-
-    series_assessment = _B_SERIES_CACHE[H]
-    result.B_series = series_assessment.B_val
-    result.series_params = series_assessment.params
-    result.gap_g1_closed_series = (result.B_series < 1.0)
+    # Lemma XII.1 (conditional)
+    gap_closed, reason, C_emp = is_gap_g1_closed(H, T0, N)
+    result.C_emp = C_emp
+    result.gap_g1_closed_conditional = gap_closed
+    result.lemma_xii_case = reason
+    result.analytically_closed_conditional = gap_closed
 
     # Volume XI: rigorous harness
     try:
@@ -545,6 +358,7 @@ def certify_full(H: float, T0: float, N: int, dps: int = 80) -> XII_Certificatio
         def _parse(key: str) -> float:
             try:
                 idx = det.index(key + "=") + len(key) + 1
+                # naive parse: up to comma/space
                 chunk = det[idx:idx + 30].split(",")[0].split(" ")[0]
                 return float(chunk)
             except Exception:
@@ -561,22 +375,11 @@ def certify_full(H: float, T0: float, N: int, dps: int = 80) -> XII_Certificatio
         result.notes = f"certify_single raised: {exc}"
         result.computationally_certified = False
 
-    # Final analytic closure: require both computational certificate
-    # and B_analytic(H,w;N_analytic) < 1 in the regime H ≤ 1 where
-    # Lemma XII.1∞ is formally applied.
-    result.analytically_closed = (
-        result.computationally_certified
-        and result.gap_g1_closed_series
-        and H <= 1.0
-    )
-
     return result
 
-
 # ---------------------------------------------------------------------------
-# SECTION 8: Final assembly sweep grid
+# SECTION 7: Final assembly sweep grid
 # ---------------------------------------------------------------------------
-
 
 ASSEMBLY_GRID: List[Tuple[float, float, int]] = [
     # (H,   T0,      N)
@@ -592,8 +395,7 @@ ASSEMBLY_GRID: List[Tuple[float, float, int]] = [
     (1.0,  10.0,     50),
     (1.0,  50.0,     54),
     (1.0, 100.0,    104),
-    # Larger H regime (beyond current analytic Lemma XII.1∞ scope, but
-    # still of interest numerically)
+    # Larger H regime (beyond current analytic Lemma XII.1 scope)
     (2.0,   0.0,     20),
     (2.0,  50.0,     52),
     (5.0,   0.0,     20),
@@ -608,27 +410,23 @@ ASSEMBLY_GRID: List[Tuple[float, float, int]] = [
     (0.5,   0.01,    50),
 ]
 
-
 @dataclass
 class XII_AssemblySummary:
     """Aggregated result of the final assembly sweep."""
     n_total: int = 0
     n_computational_pass: int = 0
-    n_analytic_closed: int = 0
+    n_conditional_closed: int = 0
     n_fail: int = 0
     min_Q_lower: float = float("inf")
     min_margin_pct: float = float("inf")
     max_E_total: float = 0.0
     min_dominance_ratio: float = float("inf")
     max_dominance_ratio: float = 0.0
-    B_series_by_H: Dict[float, float] = field(default_factory=dict)
     results: List[XII_CertificationResult] = field(default_factory=list)
 
-
 # ---------------------------------------------------------------------------
-# SECTION 9: Assembly runner
+# SECTION 8: Assembly runner
 # ---------------------------------------------------------------------------
-
 
 def run_final_assembly(dps: int = 80, verbose: bool = True) -> XII_AssemblySummary:
     summary = XII_AssemblySummary()
@@ -643,15 +441,13 @@ def run_final_assembly(dps: int = 80, verbose: bool = True) -> XII_AssemblySumma
     if verbose:
         _sec("VOLUME XII — FINAL ASSEMBLY: THE ANALYST'S PROBLEM")
         print(
-            "  Synthesising Volumes I–XI with finite-N analytic Lemma XII.1∞.\n"
+            "  Synthesising Volumes I–XI with conditional Lemma XII.1.\n"
             "  Each row: one (H, T0, N) configuration with full error budget.\n"
-            "  Columns: D_H, ρ(MV), Q_lb, B_series(H), Mean-Value closure.\n"
+            "  Columns: D_H, ρ(MV), Q_lb, Lemma XII.1 (conditional) status.\n"
         )
-        print(
-            f"  {'H':>5}  {'T0':>8}  {'N':>5}  {'D_H':>10}  {'ρ(MV)':>10}  "
-            f"{'Q_lb':>12}  {'B_series':>9}  {'Closed?':>9}"
-        )
-        print("  " + "-" * 80)
+        print(f"  {'H':>5}  {'T0':>8}  {'N':>5}  {'D_H':>10}  {'ρ(MV)':>10}  "
+              f"{'Q_lb':>12}  {'Lemma XII.1?':>15}")
+        print("  " + "-" * 72)
 
     for (H, T0, N) in ASSEMBLY_GRID:
         r = certify_full(H, T0, N, dps=dps)
@@ -663,8 +459,8 @@ def run_final_assembly(dps: int = 80, verbose: bool = True) -> XII_AssemblySumma
         else:
             summary.n_fail += 1
 
-        if r.analytically_closed:
-            summary.n_analytic_closed += 1
+        if r.analytically_closed_conditional:
+            summary.n_conditional_closed += 1
 
         if r.Q_lower_bound < summary.min_Q_lower:
             summary.min_Q_lower = r.Q_lower_bound
@@ -677,33 +473,27 @@ def run_final_assembly(dps: int = 80, verbose: bool = True) -> XII_AssemblySumma
         if r.dominance_ratio_analytic > summary.max_dominance_ratio:
             summary.max_dominance_ratio = r.dominance_ratio_analytic
 
-        # Record B_series per H
-        summary.B_series_by_H[r.H] = r.B_series
-
         if verbose:
             cert_sym = "✓" if r.computationally_certified else "✗"
-            closed_sym = "✓" if r.analytically_closed else "✗"
+            lemma_sym = "✓" if r.gap_g1_closed_conditional else "✗"
+            case_str = r.lemma_xii_case[:24]
             print(
                 f"  {H:5.2f}  {T0:8.2f}  {N:5d}  {r.D_H:10.4f}  "
                 f"{r.dominance_ratio_analytic:10.6f}  "
-                f"{r.Q_lower_bound:12.6f}  {r.B_series:9.3f}  {closed_sym:>2} ({cert_sym})"
+                f"{r.Q_lower_bound:12.6f}  {lemma_sym:>2} ({case_str})"
             )
 
     return summary
 
-
 # ---------------------------------------------------------------------------
-# SECTION 10: Theorem statement (with finite-N analytic closure)
+# SECTION 9: Theorem statement (conditional)
 # ---------------------------------------------------------------------------
-
 
 THEOREM_STATEMENT = r"""
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║               THE ANALYST'S PROBLEM — FINAL FORM                            ║
+║               THE ANALYST'S PROBLEM — PROOF CANDIDATE                      ║
 ║               Volume XII, Jason Mullings BSC                                ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
-
-
 
 THEOREM (Volume I — Reduction, T2-status):
     Let k_H(t) = (6/H²) sech⁴(t/H) and D_N(σ,T) = Σ_{n≤N} n^{-σ} e^{-iT log n}.
@@ -713,27 +503,19 @@ THEOREM (Volume I — Reduction, T2-status):
     Then (Volume I):
         RH  ⟺  Q_H(N,T0) ≥ 0  for all H>0, N∈ℕ, T0∈ℝ.
 
-
-
 LEMMA II.1 (Kernel Positivity — T1, proved):
     k_H(t) > 0 for all t∈ℝ.
     k̂_H(ξ) = [(2πξ)² + 4/H²] ŵ_H(ξ) ≥ 0 for all ξ∈ℝ.
     λ* = 4/H² is the unique minimal stabilisation threshold.
-
-
 
 LEMMA III.1 (Diagonal + Off-Diagonal Decomposition — T1, proved structurally):
     Q_H(N,T0) = D_H(N) + O_H(N,T0) where:
         D_H(N) = (6/H²) · Σ_{n=1}^N n^{-1}  > 0, T0-invariant.
         O_H(N,T0) = Σ_{m≠n} n^{-½}m^{-½} k_H(log m−log n) e^{-iT0(log m−log n)}.
 
-
-
 LEMMA VI.1 (Large Sieve Bound — T1, proved with explicit constants):
     |O_H(N,T0)| ≤ (N + 1/δ_min) · H_N · (8/H)
     where δ_min = log(N/(N−1)) and H_N = Σ_{n≤N} n^{-1}.
-
-
 
 LEMMA IX.1 (Net Positivity — T2, computationally verified):
     For all (H,T0,N) in the certified parameter set,
@@ -741,68 +523,34 @@ LEMMA IX.1 (Net Positivity — T2, computationally verified):
     with Q_lower_bound = Q_trunc − E_total > 0 and
     E_total = E_tail + E_quad + E_spec + E_num ≪ Q_trunc.
 
+LEMMA XII.1 (Phase-Averaged Kernel Localization — CONDITIONAL ANALYTIC CLAIM):
+    For H ∈ (0, 1.0] and all T₀ ∈ ℝ, we conjecture that there exists C(H, T₀) < 1
+    such that:
+        |O_H(N, T₀)| ≤ C(H, T₀) · D_H(N)   for all N ≥ 1.
 
+    Outline of intended proof:
+      - Case A (|T₀| < δ): Trivial positivity (all phases 1) ⇒ Q_H(N,0) ≥ D_H(N).
+      - Case B (δ ≤ |T₀| ≤ T₁(H)): Non-stationary phase / smooth windowing,
+        yielding decay ∼ 1/(|T₀|N) of the off-diagonal relative to D_H(N).
+      - Case C (|T₀| > T₁(H)): Stationary phase / integration by parts, giving
+        decay ∼ 1/|T₀|.
 
-LEMMA XII.1∞ (Finite-N Analytic Mean-Value Form — T1/T2, formalised):
-    Fix H ∈ (0,1] and a C¹ bump window w on [0,1] with w(0)=w(1)=0, ‖w‖_{L²}>0.
-    Define
+    Empirical support (Volumes IX–XII): For H ∈ {0.1, 0.25, 0.5, 1.0},
+    T₀ ∈ {10, 50, 100}, and N ∈ [50, 500], we observe |O_H|/D_H ≤ 0.8.
 
-        a_n = n^{-½} w(n/N),   1 ≤ n ≤ N,
+THEOREM XII.1 (Gap G1 Conditionally Closed — T2/T3 boundary):
+    Assuming Lemma XII.1 for H ∈ (0,1.0], we obtain:
+        Q_H(N, T₀) ≥ (1 - C(H, T₀)) · D_H(N) > 0   for all N ≥ 1, T₀ ∈ ℝ.
 
-    and let O_H(N,T0) be the off-diagonal part of Q_H(N,T0). The mean-value
-    theorem for Dirichlet polynomials yields, as T → ∞:
-
-        (1/T) ∫_T^{2T} |O_H(N,T0)|² dT0
-          = ∑_{reduced (p,q), p≠q, max(p,q)≤N}
-              [ k_H(log(p/q)) · ∑_{k=1}^{⌊N/max(p,q)⌋} a_{kp} a_{kq} ]².
-
-    Define the finite-N analytic mean-square ratio
-
-        B_analytic(H,w;N) := √(mean-value sum) / D_H(N),
-
-    where D_H(N) = (6/H²) Σ_{n≤N} n^{-1}. For the canonical bump window and
-    H ∈ {0.25, 0.5, 0.75, 1.0}, numerical evaluation via grouping by reduced
-    fractions (p,q) with max(p,q) ≤ N and |log(p/q)| ≤ 3.5 H gives
-
-        B_analytic(0.5, w_bump; 50)  ≈ 0.75 < 1,
-        B_analytic(0.5, w_bump; 100) ≈ 0.86 < 1,
-        B_analytic(0.5, w_bump; 150) ≈ 0.92 < 1,
-        B_analytic(0.5, w_bump; 200) ≈ 0.96 < 1.
-
-    The empirical constant C(H;N,T), defined by
-
-        C(H;N,T) = [ (1/T) ∫_T^{2T} |O_H(N,t)|² dt ]^{½} / D_H(N),
-
-    satisfies C(H;N,T) < B_analytic(H,w;N) for all tested N, H in (0,1],
-    because averaging over the finite interval [T,2T] introduces additional
-    destructive interference among near-degenerate frequency classes that
-    the strict T → ∞ limit does not capture.
-
-
-
-THEOREM XII.1 (Gap G1 Analytically Closed via B_analytic(H,w;N) < 1):
-    For H ∈ (0,1] and the bump window w, the explicit finite-N analytic
-    mean-value bound gives B_analytic(H,w;N_0) < 1 for suitable N_0.
-    Combined with the observed finite-N scaling law
-
-        C(H;N,T) ≈ A/log N + B with B < 1,
-
-    and the rigorously certified Q_H(N,T0) > 0 from Volume XI for all
-    (H,T0,N) in the assembly grid, we obtain:
-
-        Q_H(N,T0) > 0  for all tested N ≥ 1, T0 ∈ ℝ, H in the grid,
-
-    and a stable post-threshold regime in which both C(H;N,T) and
-    B_analytic(H,w;N) remain below 1. Within this program's framework,
-    Gap G1 is closed via the finite-N analytic Lemma XII.1∞ and its
-    numerical validation.
+    Together with the reduction in Volume I, this would imply the Riemann
+    Hypothesis. In this Volume we **do not** assert Lemma XII.1 as fully
+    proved; instead, we present it as an analytic target, supported by the
+    computational evidence documented here.
 """
 
-
 # ---------------------------------------------------------------------------
-# SECTION 11: Historical MV gap analysis (diagnostic only)
+# SECTION 10: Historical MV gap analysis (diagnostic only)
 # ---------------------------------------------------------------------------
-
 
 def analyse_diagonal_dominance_gap(
     H_values: List[float] = [0.1, 0.5, 1.0, 2.0, 5.0],
@@ -813,7 +561,7 @@ def analyse_diagonal_dominance_gap(
     Print the old MV-based gap table for historical reference.
 
     Values ρ < 1 show that the crude MV bound alone cannot close Gap G1,
-    motivating the finite-N analytic refinement via B_analytic(H,w;N) < 1.
+    motivating the need for Lemma XII.1 or similar refinements.
     """
     print("\n" + "=" * 78)
     print("  HISTORICAL GAP ANALYSIS: MV bound ρ = D_H / |O_H|_MV")
@@ -833,67 +581,48 @@ def analyse_diagonal_dominance_gap(
         print(row)
 
     print()
-    print("  Lemma XII.1∞ (finite-N analytic form) replaces this crude bound.")
+    print("  Lemma XII.1 is intended to replace this crude bound analytically.")
     print()
 
-
 # ---------------------------------------------------------------------------
-# SECTION 12: Reproducibility checklist
+# SECTION 11: Reproducibility checklist
 # ---------------------------------------------------------------------------
-
 
 REPRODUCIBILITY_CHECKLIST = r"""
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║             VOLUME XII — REPRODUCIBILITY CHECKLIST                         ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
+To reproduce the computational certificate:
 
-To reproduce the computational and analytic certificate:
-
-
-  □  Python ≥ 3.11, mpmath ≥ 1.3, numpy ≥ 1.25, scipy ≥ 1.13, pytest ≥ 9.0
-
+  □  Python ≥ 3.11, mpmath ≥ 1.3, numpy ≥ 1.25, pytest ≥ 9.0
 
   □  Run Volume II TDD:
        pytest KERNEL_DECOMPOSITION/VALIDATION_SUITE/ -v
 
-
   □  Run Volumes III–X TDD:
        pytest VOLUME_III ... VOLUME_X -v
-
 
   □  Run Volume XI verification suite (fast subset):
        python VOLUME_XI_COMPUTATIONAL.py
 
-
   □  Run Volume XI rigorous harness:
        python VOLUME_XI_COMPUTATIONAL.py   (rigorous suite section)
 
-
-  □  Run Volume XII lemma gap harness:
-       python VOLUME_XII_LEMMA_GAP.py
-     (verify finite–N scaling law and B_analytic(H,w;N) via the analytic
-      grouping-by-reduced-fractions formula.)
-
-
   □  Run Volume XII final assembly (this file):
        python VOLUME_XII_FINAL_ASSEMBLY.py
-
 
   □  Verify determinism:
        - random seeds fixed (e.g. RNG = random.Random(123456789))
        - mpmath precision settings documented above each computation
 
-
-  □  Cross-check B_analytic(H,w;N) for multiple windows:
-       - bump, Fejér, Jackson₂, Gaussian, etc., via VOLUME_XII_LEMMA_GAP.
+  □  Cross-check Lemma XII.1 empirically:
+       Run empirical_large_sieve_constant_windowed.py (Volume XII helper).
 """
 
-
 # ---------------------------------------------------------------------------
-# SECTION 13: TDD suite for Volume XII
+# SECTION 12: TDD suite for Volume XII
 # ---------------------------------------------------------------------------
-
 
 @dataclass
 class XII_TestResult:
@@ -901,12 +630,10 @@ class XII_TestResult:
     passed: bool
     details: str
 
-
 def print_section(title: str) -> None:
     print("\n" + "=" * 78)
     print(f"  {title}")
     print("=" * 78)
-
 
 def test_volume_ii_constants() -> XII_TestResult:
     """Volume II constants are exact to 80-decimal precision."""
@@ -926,7 +653,6 @@ def test_volume_ii_constants() -> XII_TestResult:
         details=f"L1={L1:.4f}, L2sq={L2sq:.6f}, λ*={lam:.4f}, ok={ok}"
     )
 
-
 def test_diagonal_positivity() -> XII_TestResult:
     """D_H(N) > 0 for all tested (N, H)."""
     results = []
@@ -940,7 +666,6 @@ def test_diagonal_positivity() -> XII_TestResult:
         passed=ok,
         details=f"All {len(results)} (N,H) pairs: D_H > 0 = {ok}"
     )
-
 
 def test_kernel_tail_decay() -> XII_TestResult:
     """Tail bound (48/H)e^{-4L/H} ≪ Q_trunc for adaptive L."""
@@ -958,7 +683,6 @@ def test_kernel_tail_decay() -> XII_TestResult:
         passed=ok,
         details=f"E_tail={E_tail:.3e}, Q={Q:.6e}, ratio={E_tail/abs(Q):.3e} (<1e-3): {ok}"
     )
-
 
 def test_parseval_bridge() -> XII_TestResult:
     """Parseval bridge: |Q_time − Q_freq| < 1e-7·|Q_time|."""
@@ -978,57 +702,41 @@ def test_parseval_bridge() -> XII_TestResult:
         details=f"Q_time={Q_t:.8e}, Q_freq={Q_f:.8e}, diff={diff:.2e}, eps={eps:.2e}: {ok}"
     )
 
-
-def test_infinite_series_constant() -> XII_TestResult:
+def test_lemma_xii_phase_averaged_bound() -> XII_TestResult:
     """
-    Smoke test for the CORRECTED finite-N analytic B_analytic(H,w;N) harness.
-
-    Verify B_analytic(H=0.5, bump; N=100) is in a reasonable subunit range,
-    reflecting the grouping-by-reduced-fraction formula (not the divergent
-    C_inf integral). Expected: B_analytic ≈ 0.86 for H=0.5, bump, N=100.
+    Smoke test for Lemma XII.1's empirical support:
+    Verify |O_H|/D_H < 1 for a few representative (H, T0, N) with H ≤ 1.
     """
-    H = 0.5
-    mp.mp.dps = 60
-    assess = compute_infinite_series_assessment(
-        H=H,
-        N_analytic=100,
-        B_trunc=3.5,
-    )
-    B_val = assess.B_val
-    # B_analytic grows with N; at N=100 it should be ~0.86 < 1 but not tiny.
-    ok = (B_val < 0.99) and (B_val > 0.5)
+    test_cases = [
+        {"H": 0.5, "T0": 14.13, "N": 200},
+        {"H": 0.5, "T0": 50.0,  "N": 200},
+        {"H": 1.0, "T0": 14.13, "N": 200},
+        {"H": 1.0, "T0": 50.0,  "N": 200},
+    ]
+    results = []
+    for tc in test_cases:
+        closed, reason, C_emp = is_gap_g1_closed(tc["H"], tc["T0"], tc["N"])
+        results.append((closed, C_emp, reason))
+    all_closed = all(r[0] for r in results)
+    max_C = max(r[1] for r in results)
     return XII_TestResult(
-        name="infinite_series_constant_analytic",
-        passed=ok,
-        details=f"B_analytic(H=0.5, bump; N=100)≈{B_val:.6f}, 0.5 < B < 0.99: {ok}"
+        name="lemma_xii_phase_averaged_bound",
+        passed=all_closed,
+        details=f"All cases conditionally closed: {all_closed}, max C_emp={max_C:.4f} < 1"
     )
-
 
 def test_assembly_spot_check() -> XII_TestResult:
-    """
-    Spot-check one configuration through the full certification pipeline.
-
-    DESIGN:
-      - Use H=0.5 in the well-understood regime where B_analytic(H,w;N_analytic) < 1
-        and analytic closure is expected to hold.
-      - For H=1.0, the finite-N analytic constant is observed to be
-        B_analytic(1.0, bump; 100)≈1.24>1, reflecting the H-scaling of the
-        mean-value constant. This *does not* indicate a defect and is treated
-        as a documented boundary behaviour rather than a test failure.
-    """
-    H, T0, N = 0.5, 50.0, 54
+    """Spot-check one configuration through the full certification pipeline."""
+    H, T0, N = 1.0, 50.0, 54
     r = certify_full(H, T0, N, dps=80)
-    ok = r.computationally_certified and r.analytically_closed
+    ok = r.computationally_certified and r.gap_g1_closed_conditional
     return XII_TestResult(
         name="assembly_spot_check",
         passed=ok,
-        details=(
-            f"H={H},T0={T0},N={N}: Q_lb={r.Q_lower_bound:.6e}, "
-            f"analytic_closed={r.analytically_closed}, "
-            f"B_series(H)={r.B_series:.4f}"
-        )
+        details=(f"H={H},T0={T0},N={N}: Q_lb={r.Q_lower_bound:.6e}, "
+                 f"gap_g1_closed_conditional={r.gap_g1_closed_conditional}, "
+                 f"case={r.lemma_xii_case[:40]}")
     )
-
 
 def run_volume_XII_tests() -> None:
     """Run the Volume XII TDD suite."""
@@ -1038,7 +746,7 @@ def run_volume_XII_tests() -> None:
         test_diagonal_positivity,
         test_kernel_tail_decay,
         test_parseval_bridge,
-        test_infinite_series_constant,
+        test_lemma_xii_phase_averaged_bound,
         test_assembly_spot_check,
     ]
     n_pass = 0
@@ -1054,70 +762,52 @@ def run_volume_XII_tests() -> None:
     else:
         print("  VOLUME XII TDD: SOME FAILURES — inspect above.")
 
-
 # ---------------------------------------------------------------------------
-# SECTION 14: Main runner
+# SECTION 13: Main runner
 # ---------------------------------------------------------------------------
-
 
 def run_volume_XII(dps: int = 80) -> None:
     """
-    Volume XII — complete final assembly run (computational + analytic).
+    Volume XII — complete final assembly run (computational + conditional).
     """
     t0 = time.time()
 
     print(THEOREM_STATEMENT)
 
-    print_section("FINITE–N MEAN-VALUE SCALING — Lemma XII.1′ / Gap G1 Grid")
-    # Run the finite–N scaling experiment (as in VOLUME_XII_LEMMA_GAP logs).
-    run_scaling_experiment_example()
-
-    print_section("FINAL ASSEMBLY SWEEP — Volume I–XI + Lemma XII.1∞ (finite-N)")
+    print_section("FINAL ASSEMBLY SWEEP — Volume I–XI + conditional Lemma XII.1")
     summary = run_final_assembly(dps=dps, verbose=True)
 
     print_section("ASSEMBLY SUMMARY")
     print(f"  Configurations tested:             {summary.n_total}")
     print(f"  Computationally certified:         {summary.n_computational_pass}/{summary.n_total}")
-    print(f"  Analytically closed (B_analytic<1):{summary.n_analytic_closed}/{summary.n_total}")
+    print(f"  Conditionally closed (Lemma XII.1):{summary.n_conditional_closed}/{summary.n_total}")
     print(f"  Failures:                          {summary.n_fail}")
     print(f"  Min Q_lower_bound:                 {summary.min_Q_lower:.8e}")
     print(f"  Min margin (% of Q_trunc):         {summary.min_margin_pct:.4f}%")
     print(f"  Max E_total:                       {summary.max_E_total:.4e}")
     print(f"  Analytic dominance ratio ρ(MV):    [{summary.min_dominance_ratio:.6f}, "
           f"{summary.max_dominance_ratio:.4f}]")
-    print("  Finite-N analytic B_analytic(H,w;N_analytic) by H:")
-    for H, B_val in sorted(summary.B_series_by_H.items()):
-        print(f"    H={H:.2f}: B_series(H)≈{B_val:.6f}")
 
     analyse_diagonal_dominance_gap()
+
     print(REPRODUCIBILITY_CHECKLIST)
 
     print_section("VOLUME XII — FINAL VERDICT")
     elapsed = time.time() - t0
 
     all_comp_pass = (summary.n_computational_pass == summary.n_total)
-    all_analytic_closed = (summary.n_analytic_closed == summary.n_total)
 
-    if all_comp_pass and all_analytic_closed:
-        verdict = (
-            "FINAL STATUS:\n\n"
-            "  • Computationally complete: all tested configurations satisfy\n"
-            "    Q_H(N,T0) > 0 with rigorous finite–N error budgets.\n"
-            "  • Analytically closed: the finite-N analytic constant\n"
-            "    B_analytic(H,w;N_analytic) < 1 is computed and verified for\n"
-            "    the canonical bump window in the H≤1 regime, and aligns with\n"
-            "    the finite–N mean-square decay C(H;N,T).\n\n"
-            "  Within this program's framework, Gap G1 is fully closed via\n"
-            "  Lemma XII.1∞ in its corrected finite-N form, and the reduction\n"
-            "  chain from Volume I yields a certified positivity of Q_H.\n"
-        )
-    elif all_comp_pass:
+    if all_comp_pass:
         verdict = (
             "PROOF CANDIDATE STATUS:\n\n"
             "  • Computationally complete: all tested configurations satisfy\n"
             "    Q_H(N,T0) > 0 with rigorous error budgets.\n"
-            "  • Finite-N analytic assessment did not fully close for all H in\n"
-            "    the grid (check B_analytic(H,w;N_analytic) values above).\n"
+            "  • Analytically conditional: full closure of Gap G1 relies on\n"
+            "    Lemma XII.1 (Phase-Averaged Kernel Localization), which is\n"
+            "    stated and empirically supported but not fully proved here.\n\n"
+            "  This volume should therefore be read as a bridge between a\n"
+            "  computational certificate and a future analytic proof of\n"
+            "  Lemma XII.1.\n"
         )
     else:
         verdict = (
@@ -1132,9 +822,9 @@ def run_volume_XII(dps: int = 80) -> None:
     print(f"  Total runtime: {elapsed:.1f}s")
     print()
     print("  — Jason Mullings BSC")
-    print("    The Analyst's Problem · Volume XII · Finite–N and Analytic Closed.")
+    print("    The Analyst's Problem · Volume XII · Computationally complete,")
+    print("    analytically conditional on Lemma XII.1.")
     print()
-
 
 if __name__ == "__main__":
     run_volume_XII_tests()

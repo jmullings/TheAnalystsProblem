@@ -4,18 +4,24 @@
 # test_FORMAL_REDUCTION_QH_ANALYST_PROBLEM.py
 #
 # TDD Suite for Volume I – Formal Reduction
-# Target: FORMAL_REDUCTION/FORMAL_REDUCTION_PROOF/FORMAL_REDUCTION_QH_ANALYST_PROBLEM.py
+# Target: VOLUME_I_FORMAL_REDUCTION/VOLUME_I_FORMAL_REDUCTION_PROOF/VOLUME_I_FORMAL_REDUCTION.py
+#
+# STATUS UPDATE (2026-04-16):
+#   • Defect-3 Fix: Parseval Bridge tolerance tightened from 1e-2 to 1e-8.
+#     This enforces proof-grade numerical fidelity and masks no drift.
+#   • Defect-1 Alignment: Docstrings updated to reflect Volume II Fourier fix.
+#     (Anchors k_H_hat(0) = 8/H).
+#   • Defect-2 Context: Added comments clarifying that C_ratio > 1 is a 
+#     property of the Pointwise Absolute Bound, resolved by Lemma XII.1'.
 #
 # This suite verifies the algebraic, analytic, and structural properties of the
 # Toeplitz quadratic form, the Parseval bridge, and the Analyst's Problem decomposition.
-
 
 import sys
 import math
 import cmath
 import unittest
 from pathlib import Path
-
 
 # Resolve path to import the target module
 try:
@@ -71,7 +77,11 @@ class TestSpecialFunctions(unittest.TestCase):
 
 
 class TestKernelProperties(unittest.TestCase):
-    """T1: Curvature Window and Bochner Kernel Properties"""
+    """
+    T1: Curvature Window and Bochner Kernel Properties.
+    Aligned with Volume II Fourier Fix (Defect-1):
+    k_H_hat(0) must be exactly 8/H.
+    """
 
     def test_Lambda_H_tau_positivity(self):
         H = 2.0
@@ -84,6 +94,10 @@ class TestKernelProperties(unittest.TestCase):
         self.assertAlmostEqual(g_H_sech4(0.0, H), expected, places=14)
 
     def test_k_H_hat_at_zero(self):
+        """
+        CRITICAL ANCHOR: Volume II fix ensures k_H_hat(0) = 8/H.
+        Previously, this was off by a factor of 2π in older drafts.
+        """
         H = 2.5
         self.assertAlmostEqual(k_H_hat(0.0, H), 8.0 / H, places=14)
 
@@ -117,7 +131,11 @@ class TestDirichletModel(unittest.TestCase):
 
 
 class TestParsevalBridge(unittest.TestCase):
-    """T1: Exact Equivalence of Integral and Toeplitz Forms"""
+    """
+    T1: Exact Equivalence of Integral and Toeplitz Forms.
+    UPDATED (Defect-3 Fix): Tolerance tightened to 1e-8 to enforce
+    proof-grade numerical fidelity.
+    """
 
     def test_toeplitz_matrix_symmetry(self):
         N = 10
@@ -137,24 +155,35 @@ class TestParsevalBridge(unittest.TestCase):
 
     def test_parseval_bridge_identity(self):
         """
-        CRITICAL TEST: The integral curvature F2_bar must match the 
+        CRITICAL TEST: The integral curvature F2_bar must match the
         phased quadratic form (via the validated bridge certificate)
         up to numerical quadrature error.
+
+        TOLERANCE: < 1e-8 (Tightened from 1e-2 per Defect-3 Audit).
         """
         T0 = 14.1347  # Near first Riemann zero
         H = 1.5
         N = 5
         sigma = 0.5
 
-        # Use the dedicated bridge residual rather than re‑specifying
+        # Use the dedicated bridge residual.
+        # num_steps=5001 is sufficient for 1e-8 tolerance in this regime.
         res = parseval_identity_residual(T0, H, N, sigma=sigma,
-                                         tau_min=-100.0, tau_max=100.0, num_steps=5001)
+                                         tau_min=-100.0, tau_max=100.0,
+                                         num_steps=5001)
 
-        self.assertLess(res, 1e-2, "Parseval bridge failed: Integral and Toeplitz forms diverge.")
+        self.assertLess(res, 1e-8,
+                        f"Parseval bridge failed: Integral and Toeplitz forms diverge. "
+                        f"Residual = {res} >= 1e-8")
 
 
 class TestAnalystProblemDecomposition(unittest.TestCase):
-    """T1: Decomposition of Q_H into Diagonal and Off-Diagonal"""
+    """
+    T1: Decomposition of Q_H into Diagonal and Off-Diagonal.
+    CONTEXT (Defect-2): The absolute_cross_term provides a worst-case bound
+    ignoring phase cancellation. C_ratio > 1 is possible here. The actual
+    diagonal dominance is proven via the Mean-Square framework (Lemma XII.1').
+    """
 
     def test_QH_decomposition_exactness(self):
         N = 8
@@ -184,6 +213,12 @@ class TestAnalystProblemDecomposition(unittest.TestCase):
             self.assertLessEqual(abs(cross), abs_cross + 1e-12)
 
     def test_C_ratio_computes(self):
+        """
+        Computes C_ratio.
+        Note: For large N, C_ratio > 1.0. This confirms that the
+        Pointwise Absolute Bound is insufficient for proof, necessitating
+        the Phase-Averaged (Lemma XII.1') approach.
+        """
         N = 10
         H = 2.0
         ratio = C_ratio(N, H)

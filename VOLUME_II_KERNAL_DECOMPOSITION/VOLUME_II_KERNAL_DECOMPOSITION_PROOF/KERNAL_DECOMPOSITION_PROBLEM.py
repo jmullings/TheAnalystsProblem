@@ -332,18 +332,18 @@ def w_H_hat(xi: float | mp.mpf, H: float | mp.mpf) -> mp.mpf:
 
         \hat{f}(ξ) = ∫_{ℝ} f(t) e^{-2π i ξ t} dt.
 
-    Explicit formula (matching the analytic manuscript):
+    Explicit formula (corrected to match analytic derivation):
 
-        \hat{w}_H(ξ) = π H^2 ξ / sinh(π^2 H ξ),
+        \hat{w}_H(ξ) = 2π²H²ξ / sinh(π²Hξ),
 
-    with the limiting value \hat{w}_H(0) = H / π obtained from the
+    with the limiting value \hat{w}_H(0) = 2H obtained from the
     first-order expansion sinh(z) ~ z at z = 0.
     """
     xi = mp.mpf(xi)
     H = mp.mpf(H)
     if xi == 0:
-        return H / mp.pi
-    return mp.pi * H * H * xi / mp.sinh(mp.pi ** 2 * H * xi)
+        return 2 * H
+    return 2 * mp.pi**2 * H**2 * xi / mp.sinh(mp.pi**2 * H * xi)
 
 
 def k_H_hat(xi: float | mp.mpf, H: float | mp.mpf) -> mp.mpf:

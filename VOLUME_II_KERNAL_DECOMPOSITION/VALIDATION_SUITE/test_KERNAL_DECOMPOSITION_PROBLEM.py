@@ -7,7 +7,7 @@ VALIDATION SUITE FOR VOLUME II: KERNEL DECOMPOSITION
 
 This test suite validates strict T1-level kernel algebra including:
 - Curvature/floor decomposition
-- Fourier symbol analysis
+- Fourier symbol analysis & absolute normalization (anchors the 2π fix)
 - Bochner-PSD checks
 - Analytical constants and identities
 
@@ -66,13 +66,10 @@ class TestHyperbolicPrimitives:
     def test_sech_identities(self):
         """Verify sech(x) = 1/cosh(x) and power relationships."""
         x = mp.mpf('1.2345')
-        # sech(x) = 1/cosh(x)
         assert mp.almosteq(kd.sech(x), 1.0 / mp.cosh(x), TOL), \
             "sech(x) should equal 1/cosh(x)"
-        # sech2(x) = sech(x)^2
         assert mp.almosteq(kd.sech2(x), kd.sech(x)**2, TOL), \
             "sech2(x) should equal sech(x)^2"
-        # sech4(x) = sech2(x)^2
         assert mp.almosteq(kd.sech4(x), kd.sech2(x)**2, TOL), \
             "sech4(x) should equal sech2(x)^2"
         
@@ -108,14 +105,11 @@ class TestKernelDecompositionAlgebra:
         """Strict verification of symbolic derivatives using high-precision FD (T1)."""
         H_mp = mp.mpf(H)
         t = mp.mpf('0.777')
-        # Use a numerically stable step size (avoids catastrophic cancellation)
         dt = mp.mpf('1e-8')
         
-        # Second derivative check against finite difference of w_H
         fd_double_prime = (kd.w_H(t + dt, H_mp) - 2 * kd.w_H(t, H_mp) + kd.w_H(t - dt, H_mp)) / (dt * dt)
         sym_double_prime = kd.w_H_double_prime(t, H_mp)
         
-        # Tolerance appropriate for second-order FD with step 1e-8 (error ~ dt^2)
         assert mp.almosteq(fd_double_prime, sym_double_prime, mp.mpf('1e-12')), \
             f"Second derivative mismatch at H={H}, t={t}"
 
@@ -131,13 +125,8 @@ class TestKernelDecompositionAlgebra:
             w_h = kd.w_H(t, H_mp)
             w_h_pp = kd.w_H_double_prime(t, H_mp)
             
-            # LHS: -w_H''(t) + (4/H^2)w_H(t)
             lhs = -w_h_pp + (4.0 / (H_mp * H_mp)) * w_h
-            
-            # RHS: (6/H^2)sech^4(t/H)
             rhs = kd.k_H_sech4_closed_form(t, H_mp)
-            
-            # Implementation wrapper
             k_t = kd.k_H(t, H_mp)
             
             assert mp.almosteq(lhs, rhs, TOL), \
@@ -167,17 +156,14 @@ class TestSignAnalysisAndOptimality:
         info = kd.w_double_prime_sign_info(H_mp)
         t_trans = info["transition_t"]
         
-        # Curvature should be exactly 0 at the transition point
         assert mp.almosteq(kd.curvature_term(t_trans, H_mp), 0.0, TOL), \
             f"Curvature should be zero at transition point t={t_trans}"
         
-        # Curvature should be negative strictly inside the interval
         t_inside = t_trans * mp.mpf('0.5')
         curv_inside = kd.curvature_term(t_inside, H_mp)
         assert curv_inside < 0.0, \
             f"Curvature should be negative at t={t_inside} (inside interval)"
         
-        # Curvature should be positive strictly outside the interval
         t_outside = t_trans * mp.mpf('1.5')
         curv_outside = kd.curvature_term(t_outside, H_mp)
         assert curv_outside > 0.0, \
@@ -196,8 +182,6 @@ class TestSignAnalysisAndOptimality:
                 f"Floor term should be positive at t={t}"
             
             curv = kd.curvature_term(t, H_mp)
-            # Dominance: floor - curvature = k_H(t) > 0
-            # Note: k_H = -w_H'' + floor, so we subtract curvature_term (which is w_H'')
             total = floor - curv
             assert total > 0.0, \
                 f"Floor term should dominate curvature at t={t}: floor={floor}, curv={curv}"
@@ -209,12 +193,10 @@ class TestSignAnalysisAndOptimality:
         H = 1.0
         lam_star = float(kd.lambda_star(mp.mpf(H)))
         
-        # Exact lam_star should show numeric minimal lambda is <= lam_star
         numeric_min = kd.minimal_lambda_numeric(H=H, t_max=10.0, n_grid=5000)
         assert numeric_min <= lam_star + NUM_TOL, \
             f"Numeric minimal lambda {numeric_min} should not exceed theoretical {lam_star}"
         
-        # Perturbation breaks positivity
         lam_perturbed = lam_star - 0.001
         res = kd.finds_negative_for_lambda(H=H, lam=lam_perturbed, t_max=10.0, n_grid=5000)
         assert res is not None, \
@@ -227,13 +209,38 @@ class TestSignAnalysisAndOptimality:
 
 class TestFourierDomain:
     """
-    Requirement 5: Fourier-side decomposition and positivity (T1).
+    Requirement 5: Fourier-side decomposition, absolute normalization, and positivity (T1).
     """
     
+    def test_w_H_hat_normalization_at_zero(self, H_values):
+        r"""
+        CRITICAL ANCHOR TEST: Verify \hat{w}_H(0) = ∫ w_H(t) dt = 2H.
+        This closes the 2π factor blind spot by anchoring the absolute scale.
+        """
+        for H in H_values:
+            H_mp = mp.mpf(H)
+            w_hat_0 = kd.w_H_hat(0.0, H_mp)
+            expected = 2 * H_mp
+            assert mp.almosteq(w_hat_0, expected, TOL), \
+                f"w_H_hat(0, H={H}) should be {expected}, got {w_hat_0}"
+
+    def test_k_H_hat_normalization_at_zero(self, H_values):
+        r"""
+        Verify \hat{k}_H(0) = λ* \hat{w}_H(0) = (4/H^2) * 2H = 8/H.
+        Matches the L1 norm of k_H analytically derived in Volume II.
+        """
+        for H in H_values:
+            H_mp = mp.mpf(H)
+            k_hat_0 = kd.k_H_hat(0.0, H_mp)
+            expected = mp.mpf('8') / H_mp
+            assert mp.almosteq(k_hat_0, expected, TOL), \
+                f"k_H_hat(0, H={H}) should be {expected}, got {k_hat_0}"
+
     @pytest.mark.parametrize("H", [1.0, 3.0])
     def test_fourier_decomposition_identity(self, H):
         r"""
         Show \hat{k}_H(ξ) = ((2πξ)^2 + λ*) \hat{w}_H(ξ) (T1).
+        Tests internal consistency of the decomposition formula.
         """
         H_mp = mp.mpf(H)
         lam = kd.lambda_star(H_mp)
@@ -243,14 +250,11 @@ class TestFourierDomain:
             w_hat = kd.w_H_hat(xi, H_mp)
             k_hat = kd.k_H_hat(xi, H_mp)
             
-            # Decompose
             energy_term = ((2 * mp.pi * xi) ** 2) * w_hat
             floor_term = lam * w_hat
             
             assert mp.almosteq(k_hat, energy_term + floor_term, TOL), \
                 f"Fourier decomposition failed at H={H}, ξ={xi}"
-            
-            # Both terms must be non-negative
             assert energy_term >= 0.0, \
                 f"Energy term should be non-negative at ξ={xi}"
             assert floor_term >= 0.0, \
@@ -260,6 +264,24 @@ class TestFourierDomain:
         r"""Verify \hat{k}_H(ξ) >= 0 on a dense grid (T1 verification)."""
         result = kd.fourier_symbol_nonnegative(H=1.0, xi_max=50.0, n_grid=10000)
         assert result, "Fourier symbol should be non-negative on entire grid"
+
+    def test_fourier_closed_form_vs_numerical_integral(self):
+        r"""
+        Verify closed-form w_H_hat matches numerical integration of the definition:
+        \hat{w}_H(ξ) = ∫ sech^2(t/H) e^{-2πiξt} dt.
+        """
+        H_mp = mp.mpf(1.0)
+        for xi_val in [0.1, 0.5, 1.0]:
+            xi = mp.mpf(xi_val)
+            def integrand(t):
+                return kd.w_H(t, H_mp) * mp.e**(-2j * mp.pi * xi * t)
+            num_hat = mp.quad(integrand, [-mp.inf, mp.inf])
+            closed_hat = kd.w_H_hat(xi, H_mp)
+            # Real part should match; imaginary part should be ~0 (even function)
+            assert mp.almosteq(mp.re(num_hat), closed_hat, mp.mpf('1e-20')), \
+                f"Fourier transform mismatch at ξ={xi}: num={mp.re(num_hat)}, closed={closed_hat}"
+            assert abs(mp.im(num_hat)) < mp.mpf('1e-25'), \
+                f"Imaginary part should be ~0 for even function at ξ={xi}"
 
 
 class TestBochnerEquivalence:
@@ -309,12 +331,10 @@ class TestIntegralsAndDecay:
         H_mp = mp.mpf(H)
         exact_L1 = kd.k_H_L1(H_mp)
         
-        # Verify analytical formula
         expected_L1 = 8 / H_mp
         assert mp.almosteq(exact_L1, expected_L1, TOL), \
             f"Analytical L1 norm should equal 8/H for H={H}"
         
-        # Numerical quadrature check
         numeric_L1 = mp.quad(lambda t: kd.k_H(t, H_mp), [-mp.inf, mp.inf])
         assert mp.almosteq(exact_L1, numeric_L1, mp.mpf('1e-20')), \
             f"Numeric L1 integral should match analytical value for H={H}"
@@ -325,7 +345,6 @@ class TestIntegralsAndDecay:
         H_mp = mp.mpf(H)
         exact_L2_sq = kd.k_H_L2_squared(H_mp)
         
-        # Verify analytical formula
         expected_L2_sq = (mp.mpf('1152') / mp.mpf('35')) / (H_mp ** 3)
         assert mp.almosteq(exact_L2_sq, expected_L2_sq, TOL), \
             f"Analytical L2^2 norm should equal (1152/35)/H^3 for H={H}"
@@ -339,22 +358,16 @@ class TestIntegralsAndDecay:
         H = 1.0
         samples = kd.k_H_decay_sample(H=H, t_values=[0.0, 5.0, 10.0, 20.0])
         
-        # Verify extreme decay at t=20
         t_20_val = next(v for t, v in samples if t == 20.0)
         assert t_20_val < 1e-15, \
             f"Kernel should decay to near-zero at t=20: {t_20_val}"
         
-        # Check relative decay rate fits exponential profile
         t_5_val = next(v for t, v in samples if t == 5.0)
         t_10_val = next(v for t, v in samples if t == 10.0)
         
-        # sech^4(t/H) decays like (2e^{-t/H})^4 = 16e^{-4t/H}
-        # k_H(t) = 6/H^2 sech^4(t/H) ~ 96/H^2 e^{-4t/H}
-        # ratio k_H(10) / k_H(5) for H=1 should be approx e^{-4*5} = e^{-20}
         ratio = t_10_val / t_5_val
         expected_ratio = math.exp(-20.0)
         
-        # Adjusted tolerance for double precision float arithmetic at this scale
         assert abs(ratio - expected_ratio) < 1e-11, \
             f"Decay ratio {ratio} should match exponential prediction {expected_ratio}"
 
