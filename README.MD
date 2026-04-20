@@ -1,18 +1,59 @@
-# The Analyst's Problem
-### A Program Toward the Riemann Hypothesis · Volumes I–XII
+<p align="center">
+  <img src="TAP_HEADER.png" alt="The Analyst's Problem Logo" width="720" />
+</p>
 
-**Jason Mullings BSc · Independent Research · 2026**
+<p align="center">
+  <strong>A twelve-volume computational and analytic program toward the Riemann Hypothesis.</strong>
+</p>
 
-[![Status](https://img.shields.io/badge/Status-Computationally%20Certified%20%7C%20Analytically%20Conditional-orange)](https://github.com/jmullings/TheAnalystsProblem)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19038824.svg)](https://doi.org/10.5281/zenodo.19038824)<br>
-[![GitHub](https://img.shields.io/badge/GitHub-TheAnalystsProblem-blue)](https://github.com/jmullings/TheAnalystsProblem)<br>
-[![YouTube](https://img.shields.io/badge/YouTube-TheAnalystsProblem-red)](https://www.youtube.com/@TheAnalystsProblem)<br>
+<p align="center">
+  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.11%2B-blue.svg" alt="Python"/></a>
+  <a href="https://github.com/jmullings/TheAnalystsProblem/actions"><img src="https://github.com/jmullings/TheAnalystsProblem/actions/workflows/ci.yml/badge.svg" alt="CI"/></a>
+  <a href="https://zenodo.org/badge/latestdoi/123456789"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.19038824.svg" alt="DOI"/></a>
+  <a href="https://github.com/jmullings/TheAnalystsProblem/releases"><img src="https://img.shields.io/github/v/release/jmullings/TheAnalystsProblem" alt="Release"/></a>
+  <a href="https://www.youtube.com/@TheAnalystsProblem"><img src="https://img.shields.io/badge/YouTube-TheAnalystsProblem-red.svg" alt="YouTube"/></a>
+  <a href="docs/STATUS.md"><img src="https://img.shields.io/badge/status-computationally_certified-orange.svg" alt="Status"/></a>
+</p>
+
+<p align="center">
+  <a href="#overview">Overview</a> •
+  <a href="#the-central-claim">Central Claim</a> •
+  <a href="#epistemic-taxonomy">Epistemic Taxonomy</a> •
+  <a href="#structural-argument">Structural Argument</a> •
+  <a href="#computational-certification">Certification</a> •
+  <a href="#reproducibility">Reproducibility</a> •
+  <a href="#support">Support</a>
+</p>
 
 ---
 
 > *"We cannot verify an infinite amount of zeros; however, if an infinite key rotates an infinite lock, then we have our solution to the Riemann Hypothesis."*
 >
 > — Jason Mullings BSc, 2026
+
+---
+
+> **The Analyst's Problem does not claim proof. It certifies reduction.**
+
+This repository contains the complete twelve-volume computational and analytic program culminating in a proof-candidate framework for the **Riemann Hypothesis (RH)**.
+
+The program reduces RH to a single, self-contained positivity condition in harmonic analysis — **The Analyst's Problem** — then builds every layer of supporting analytic and computational machinery required to certify that condition.
+
+**Current status:** Computationally complete. All 216 deterministic grid points certified with explicit proof-grade error budgets. Analytically conditional on the formalization of **Lemma XII.1∞** (the Finite-N Analytic Mean-Value Form). Structured for external peer review.
+
+```text
+computational certification  ->  216/216 grid points verified
+analytic reduction           ->  RH ⇔ Q_H ≥ 0 established at T2
+epistemic transparency       ->  T1/T2/T3 tiers explicitly labeled
+remaining work               ->  formal analytic exposition of Lemma XII.1∞
+```
+
+| | What it does |
+|---|---|
+| **Reduce RH to positivity** | Establish RH ⇔ Q_H(N,T₀) ≥ 0 via Weil explicit formula + Parseval bridge |
+| **Certify computationally** | Verify Q_H > 0 on rigorous grids with four-term explicit error budgets |
+| **Isolate analytic obligations** | Clearly label T1 (unconditional), T2 (standard assumptions), T3 (open) results |
+| **Enable reproducibility** | Provide dependency-free Python engine with deterministic seeds and full test coverage |
 
 ---
 
