@@ -127,7 +127,7 @@ $$Q_{\mathrm{lb}} = Q_{\mathrm{trunc}} - (E_{\mathrm{tail}} + E_{\mathrm{quad}} 
 
 | Vol. | Title | Status / Tightening | Key Deliverable |
 |------|-------|---------------------|-----------------|
-| **I** | Formal Reduction | 🟡 Parseval tol. `1e-8` | Q_H object and Parseval bridge implemented; RH ⇔ Q_H ≥ 0 established at T2 (Weil + ξ), full internal derivation pending. |
+| **I** | Formal Reduction | ✅ Parseval bridge & engine certified (T1/T2) | Q_H object and Parseval bridge implemented; RH ⇔ Q_H^∞ > 0 established at T2 (ξ + Weil + EF.H), with all nontrivial analytic inputs explicitly delegated to Vols VIII–X for formal proof. |
 | **II** | Kernel Stabilisation | ✅ Fourier 2π Anchor | $k_H = (6/H^2)\mathrm{sech}^4(t/H)$; exact L1/L2 norms |
 | **III** | Quad Decomposition | ✅ RMS Pathway Fixed | Pointwise fails; shifted to Lemma XII.1' mean-square |
 | **IV** | Spectral Expansion | ✅ T1 Verified | Parseval spectral bridge |
