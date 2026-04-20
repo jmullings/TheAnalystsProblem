@@ -24,6 +24,8 @@ The program reduces the Riemann Hypothesis to a single, self-contained positivit
 
 **Current status:** Computationally complete. All 216 deterministic grid points certified with explicit proof-grade error budgets. Analytically conditional on the formalization of **Lemma XII.1∞** (the Finite-N Analytic Mean-Value Form). Structured for external peer review.
 
+> Analytic closure of the finite‑N mean-value constant and its asymptotic behavior remains conditional; Lemma XII.1∞ is currently proved at finite N with strong numerical evidence, but no asymptotic bound \(B(H,w) < 1\) is claimed.
+
 ---
 
 ## The Central Claim
@@ -37,7 +39,9 @@ $$Q_H(N, T_0) = \int_{-\infty}^{\infty} k_H(t)\,\left|D_N\!\left(1/2,\, T_0 + t\
 **Theorem (Volume I — Reduction, T2):**
 $$\text{RH} \iff Q_H(N, T_0) \geq 0 \quad \text{for all } H > 0,\; N \in \mathbb{N},\; T_0 \in \mathbb{R}$$
 
-This equivalence is proved using the Weil explicit formula and the Parseval bridge (numerically anchored to an error $< 10^{-14}$). Every subsequent volume is devoted to certifying this positivity condition, layer by layer, with all error terms explicit and no hidden $O(\cdot)$ arguments.
+This equivalence is established at the **T2** level using the Weil explicit formula and the Parseval bridge, with the bridge numerically anchored to an error < \(10^{-14}\). A full, self-contained ξ → Q_H derivation with all constants tracked is part of the remaining analytic program.
+
+> In the core reduction, we work conceptually with bare coefficients \(a_n = n^{-\sigma}\); smooth windows \(w(n/N)\) are introduced in later volumes to control edge effects while preserving the quadratic-form structure.
 
 ---
 
@@ -74,7 +78,7 @@ To prove $Q_H \ge 0$, we must show that the off-diagonal interference never over
 
 Classical Montgomery–Vaughan Large Sieve bounds yield $|O_H| \leq \mathcal{O}(N \log N)$, while $D_H \sim \mathcal{O}(\log N)$. This leaves a factor-of-$N$ gap (Gap G1). Furthermore, Volume III proves that at $T_0 = 0$ (perfect constructive interference), the pointwise bound $|O_H| < D_H$ *fails* for large $N$.
 
-**The Resolution (Volume XII):** We abandon global density bounds and pointwise limits. Instead, we route the proof entirely through the **mean-square pathway**, exploiting the exponential decay $k_H(t) \sim e^{-4|t|/H}$ by grouping pairs by their reduced multiplicative ratios $r = p/q$.
+**The Strategy (Volume XII):** We abandon global density bounds and pointwise limits. Instead, we route the analysis through a finite‑N mean-square framework (Lemma XII.1∞), which expresses the RMS off-diagonal energy via reduced fractions and yields explicit finite‑N constants \(B_{\text{analytic}}(H,w;N)\).
 
 **Lemma XII.1∞ (Finite-N Analytic Mean-Value Form — T3 $\to$ T2):**
 For large $T$, the mean-value theorem for Dirichlet polynomials yields:
@@ -86,9 +90,12 @@ $$ B_{\text{analytic}}(H,w;N) := \frac{ \sqrt{\text{mean-value sum}} }{ D_H(N) }
 
 Evaluating this exact harmonic formula for $H \in (0,1]$ yields:
 $$ B_{\text{analytic}}(0.5, w_{\text{bump}}; 100) \approx 0.86 < 1 $$
-Because the exact analytic mean-square constant $B_{\text{analytic}}$ is strictly less than 1, the diagonal mass strictly dominates the off-diagonal RMS energy.
 
-**Theorem XII.1:** Combined with the finite-$T$ destructive interference ($C(H;N,T) < B_{\text{analytic}}$) and explicit Volume XI certification, this analytic formulation formally closes Gap G1 and guarantees $Q_H(N, T_0) > 0$.
+For example, for \(H = 0.5\) and the canonical bump window, the finite‑N constant satisfies \(B_{\text{analytic}}(0.5,w_{\text{bump}};100) \approx 0.86 < 1\), showing that in this regime the diagonal mass strictly dominates the off-diagonal RMS energy at \(N=100\).
+
+> For larger N (e.g. \(N \gtrsim 300\)), the same finite‑N analytic constant can exceed 1 for the bump window, so no uniform asymptotic bound \(B(H,w) < 1\) is currently claimed.
+
+**Theorem XII.1 (finite‑N mean-value control):** For each fixed H and window w, the mean-value identity yields finite‑N constants \(B_{\text{analytic}}(H,w;N)\) which are explicitly computable and, for certain moderate N and H (e.g. \(H = 0.5, N=100\)), satisfy \(B_{\text{analytic}} < 1\). Combined with finite‑T destructive interference and the Volume XI harness, this provides a **finite‑parameter** positivity certificate for \(Q_H(N,T_0)\) on the tested grid. A full asymptotic inequality \(B(H,w) < 1\) for all large N, and its promotion to global positivity in \(T_0\), remains an open analytic step.
 
 ---
 
@@ -105,12 +112,14 @@ $$Q_{\mathrm{lb}} = Q_{\mathrm{trunc}} - (E_{\mathrm{tail}} + E_{\mathrm{quad}} 
 |--------|--------|
 | Configurations tested | 20 |
 | Computationally certified ($Q_{\mathrm{lb}} > 0$) | **20/20** ✅ |
-| Analytically closed via Lemma XII.1∞ ($H \le 1$) | **14/14** ✅ |
+| Finite‑N mean-value certified via Lemma XII.1∞ (selected H ≤ 1) | **14/14** ✅ (for the specific H,N grid) |
 | 216-point deterministic exhaustive grid | **216/216** ✅ |
 | Min margin (% of $Q_{\mathrm{trunc}}$) | 99.95% |
 | Max explicit error $E_{\mathrm{total}}$ | 2.68 × 10⁻³ |
 
-*(Note: For $H > 1$, $B_{\text{analytic}}$ scales $>1$ due to kernel widening, which is a documented boundary behavior; numerical positivity remains certified computationally).*
+> These are finite‑N analytic/numeric certificates on a discrete grid; no claim is made that \(B_{\text{analytic}}(H,w;N) < 1\) holds for all N or all H ≤ 1.
+
+*(Note: For $H > 1$, $B_{\text{analytic}}$ scales $>1$ due to kernel widening, which is a documented boundary behavior; numerical positivity remains certified computationally). For \(H = 1\), the finite‑N analytic constants \(B_{\text{analytic}}(1,w;N)\) can exceed 1 for larger N, consistent with the expected widening of the kernel; in these regimes, positivity is enforced by the Volume XI computational harness rather than by a subunit analytic RMS constant.*
 
 ---
 
@@ -118,7 +127,7 @@ $$Q_{\mathrm{lb}} = Q_{\mathrm{trunc}} - (E_{\mathrm{tail}} + E_{\mathrm{quad}} 
 
 | Vol. | Title | Status / Tightening | Key Deliverable |
 |------|-------|---------------------|-----------------|
-| **I** | Formal Reduction | ✅ `1e-8` Parseval Tol. | RH $\iff Q_H \geq 0$; exact bridge established |
+| **I** | Formal Reduction | 🟡 Parseval tol. `1e-8` | Q_H object and Parseval bridge implemented; RH ⇔ Q_H ≥ 0 established at T2 (Weil + ξ), full internal derivation pending. |
 | **II** | Kernel Stabilisation | ✅ Fourier 2π Anchor | $k_H = (6/H^2)\mathrm{sech}^4(t/H)$; exact L1/L2 norms |
 | **III** | Quad Decomposition | ✅ RMS Pathway Fixed | Pointwise fails; shifted to Lemma XII.1' mean-square |
 | **IV** | Spectral Expansion | ✅ T1 Verified | Parseval spectral bridge |
@@ -129,7 +138,7 @@ $$Q_{\mathrm{lb}} = Q_{\mathrm{trunc}} - (E_{\mathrm{tail}} + E_{\mathrm{quad}} 
 | **IX** | Convolution Positivity | ✅ T1 Verified | $\int k_H |D_N|^2 > 0$ proven computationally |
 | **X** | Uniformity & Edges | ✅ T1 Verified | Arithmetic resonances mapped |
 | **XI** | Rigorous Harness | ✅ 216/216 Certified | 80-decimal grid verification |
-| **XII** | Final Assembly | ✅ $B_{\text{analytic}}$ proven | Lemma XII.1∞ closes Gap G1 |
+| **XII** | Final Assembly | 🟡 Finite‑N \(B_{\text{analytic}}\) implemented | Gap G1 reduced to finite‑N mean-value constants; asymptotic inequality and global positivity still open. |
 
 **TDD Matrix:**
 - `354+ total tests` across all volumes.
@@ -141,17 +150,17 @@ $$Q_{\mathrm{lb}} = Q_{\mathrm{trunc}} - (E_{\mathrm{tail}} + E_{\mathrm{quad}} 
 ## What Is Proved and What Remains (The Last 5%)
 
 ### ✅ Proved (T1/T2) — Unconditional within stated assumptions
-- The core reduction RH $\iff Q_H \geq 0$ (Volume I, T2 — Weil explicit formula).
+- The core reduction RH ⇔ Q_H ≥ 0 is **established under standard analytic assumptions** (Weil explicit formula, ξ-function framework), with the finite-N Parseval bridge numerically certified to 1e−14.
 - Exact Fourier normalization $\hat{k}_H(0) = 8/H$ and uniqueness of $\lambda^* = 4/H^2$ (Volume II, T1).
 - The shift from pointwise bound failure to Mean-Square RMS dominance (Volume III, T1).
 - $Q_H(N, T_0) > 0$ rigorously certified on deterministic grids with 4-term explicit error budgets (Vol XI, T1).
-- Gap G1 is mathematically mapped to $B_{\text{analytic}}(H,w;N) < 1$ via reduced fractions $p/q$ (Vol XII, T1).
+- Gap G1 is mapped to a precise mean-square inequality involving \(B_{\text{analytic}}(H,w;N)\) via reduced fractions \(p/q\), and these finite‑N constants are explicitly computable.
 
 ### ⏳ Pending — Formal Analytic Expositions (For Journal Submission)
 The framework is computationally complete and mathematically bridged. The remaining steps are formal mathematical writing (upgrading T2/T3 to unconditional proofs):
 1. **Explicit $\xi \to Q_H$ Derivation:** Writing out the self-contained integration of the $\xi$-function connecting to $Q_H$ without relying strictly on the $D_N$ finite proxy.
 2. **Weil Sign Verification:** Explicit derivation matching the framework's normalization constants to Titchmarsh's sign conventions.
-3. **Analytic Limits for Lemma XII.1∞:** A formal, continuum-limit proof that $B_{\text{analytic}} < 1$ holds for all $N \to \infty$ beyond the computational verifications at $N=200$.
+3. **Analytic behavior of \(B_{\text{analytic}}(H,w;N)\):** A rigorous analysis of the finite‑N mean-value constants, including conditions on H and w under which \(B_{\text{analytic}}(H,w;N)\) remains below 1 (if possible), or a rephrasing of the main argument that uses only finite‑N regimes combined with other analytic control.
 4. **Lipschitz Uniformity Bounds:** Analytic bounding of the continuum to bridge the discrete $T_0$ grid.
 
 ---
@@ -181,9 +190,9 @@ python VOLUME_XII_FINAL_ASSEMBLY/VOLUME_XII_FINAL_ASSEMBLY_PROOF/VOLUME_XII_FINA
 
 ## The Metaphor, Precisely Stated
 
-**Layperson:** Volume I carves the shape of the key and designs the lock. Volume II plates the key with a frictionless, dual-sided $\mathrm{sech}^4$ coating that cannot warp. Volumes III–X verify every groove. Volume XI stress-tests the key at 216 positions and 300 random positions; it holds in every case. 
+**In general:** Volume I carves the shape of the key and designs the lock. Volume II plates the key with a frictionless, dual-sided $\mathrm{sech}^4$ coating that cannot warp. Volumes III–X verify every groove. Volume XI stress-tests the key at 216 positions and 300 random positions; it holds in every case. 
 
-**What remains:** You cannot inspect every groove on an infinitely long key by hand. By looking at how the grooves group together mathematically (using fractions), Volume XII proves that the "noise" (off-diagonal interference) is strictly weaker than the "signal" (the diagonal mass). Once this mean-square property is fully formalized, the key turns, the tumbler clicks, and the Riemann Hypothesis is solved.
+**What remains:** You cannot inspect every groove on an infinitely long key by hand. By looking at how the grooves group together mathematically (using fractions), Volume XII proves that the "noise" (off-diagonal interference) is strictly weaker than the "signal" (the diagonal mass) in finite regimes. Once this mean-square property is fully formalized, the key turns, the tumbler clicks, and the Riemann Hypothesis is solved.
 
 ---
 
@@ -204,10 +213,9 @@ This is an open, independent research program. If you find it valuable:
 - **Mathematical Content:** CC BY-NC-SA 4.0
 - **Contact:** [GitHub Issues](https://github.com/jmullings/TheAnalystsProblem/issues)
 
-> *"The scaffolding is built. The kernel is stabilised. The form is decomposed. The spectral bridge is certified. The Dirichlet engine is bounded. The sieve constants are explicit. The infinite-series limit has been taken using exact reduced fractions. The infimum is strictly positive.*
+> *"The scaffolding is built. The kernel is stabilised. The form is decomposed. The spectral bridge is certified. The Dirichlet engine is bounded. The sieve constants are explicit. The finite‑N regimes have been mapped using exact reduced fractions. The infimum is strictly positive on the tested grid.*
 > 
-> *The machine does not lie. The gap is closed.*
+> *The machine does not lie. The gap is **numerically bridged and structurally mapped**.*
 > 
-> *The key turns. The tumbler clicks. The framework holds."*
 > 
 > — Jason Mullings BSc, 2026

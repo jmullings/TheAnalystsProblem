@@ -1,4 +1,3 @@
-```markdown
 # Volume XII: Final Assembly — The Analyst's Problem
 
 **A Program Toward the Riemann Hypothesis**  
@@ -133,4 +132,3 @@ The infinite-series formulation converts empirical stability into a rigorous ana
 ---
 **License:** Code (MIT) · Mathematical Content (CC BY-NC-SA 4.0)  
 **Repository:** [github.com/jmullings/TheAnalystsProblem](https://github.com/jmullings/TheAnalystsProblem)
-```
