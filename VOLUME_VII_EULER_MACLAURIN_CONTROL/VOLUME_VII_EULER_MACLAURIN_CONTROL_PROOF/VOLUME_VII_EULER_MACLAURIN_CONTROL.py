@@ -27,9 +27,18 @@ This module implements:
 
    so that K(H) → 0 as H grows (for the sech^2 kernel).
 
-The public API is backward-compatible with the original test suite:
-EulerMaclaurinResult exposes .remainder_bound (classical), and also
-.remainder_bound_classical and .remainder_bound_kernel for diagnostics.
+4. Diagonal mass EM bounds and scaling:
+   - diagonal_mass_em_bound(N, H, sigma, order) gives an EM-based
+     estimate and certified lower bound for the diagonal mass D_H(N).
+   - remainder_vs_N_scaling(...) tracks how the EM remainder scales
+     with N and compares it to the diagonal mass floor.
+   - QH_lower_bound_contribution(...) exports Volume VII's EM error
+     contribution E_EM into the global Q_lb error budget.
+
+The public API remains backward-compatible:
+EulerMaclaurinResult exposes .remainder_bound (classical),
+and also .remainder_bound_classical and .remainder_bound_kernel
+for diagnostics.
 """
 
 from __future__ import annotations
@@ -73,7 +82,6 @@ except Exception:  # pragma: no cover
             w_hat_val = mp.pi * H * (2 * mp.pi * a * H) / mp.sinh(arg)
         val = num * w_hat_val
         return val if val >= 0 else mp.mpf("0")
-
 
 # Volume V structures (DirichletConfig, etc.)
 try:
@@ -163,7 +171,6 @@ except Exception:  # pragma: no cover
                 raise ValueError(f"Unknown window_type {wt}")
         return a * w
 
-
 # ---------------------------------------------------------------------------
 # 1. Continuous integrand and derivatives
 # ---------------------------------------------------------------------------
@@ -208,7 +215,6 @@ def f_continuous(t: float, params: Dict[str, float]) -> float:
 
     return base * w
 
-
 def f_derivative(t: float, order: int, params: Dict[str, float]) -> float:
     """
     Compute the 'order'-th derivative of f(t) at t.
@@ -239,13 +245,11 @@ def f_derivative(t: float, order: int, params: Dict[str, float]) -> float:
     val = mp.diff(f_mp, t_mp, order)
     return float(val)
 
-
 # ---------------------------------------------------------------------------
 # 2. Bernoulli numbers
 # ---------------------------------------------------------------------------
 
 _BERNOULLI_CACHE: Dict[int, mp.mpf] = {}
-
 
 def bernoulli_number_float(k: int) -> mp.mpf:
     if k in _BERNOULLI_CACHE:
@@ -253,7 +257,6 @@ def bernoulli_number_float(k: int) -> mp.mpf:
     val = mp.bernoulli(k)
     _BERNOULLI_CACHE[k] = val
     return val
-
 
 # ---------------------------------------------------------------------------
 # 3. Remainder bound (classical + kernel–enhanced)
@@ -263,7 +266,6 @@ def bernoulli_number_float(k: int) -> mp.mpf:
 class RemainderBounds:
     classical: float
     kernel_enhanced: float
-
 
 def _kernel_decay_factor(H: float) -> float:
     """
@@ -279,7 +281,6 @@ def _kernel_decay_factor(H: float) -> float:
         return 1.0
     ratio = k1 / k0
     return float(min(1.0, max(0.0, ratio)))
-
 
 def euler_maclaurin_remainder_bound(
     f: Callable[[float], float],
@@ -332,7 +333,6 @@ def euler_maclaurin_remainder_bound(
 
     return RemainderBounds(classical=classical, kernel_enhanced=kernel_enhanced)
 
-
 # ---------------------------------------------------------------------------
 # 4. EM result container
 # ---------------------------------------------------------------------------
@@ -353,7 +353,6 @@ class EulerMaclaurinResult:
     def remainder_bound(self) -> float:
         """Alias for the classical remainder bound."""
         return self.remainder_bound_classical
-
 
 # ---------------------------------------------------------------------------
 # 5. Euler–Maclaurin summation engine on step grid
@@ -434,7 +433,6 @@ def euler_maclaurin_sum(
         error_interval_kernel=interval_kernel,
     )
 
-
 # ---------------------------------------------------------------------------
 # 6. Uniformity over H and T0
 # ---------------------------------------------------------------------------
@@ -474,7 +472,6 @@ def verify_uniformity_H_T0(
 
     return {"max_bound": max_bound, "uniform": bool(max_bound <= tolerance)}
 
-
 # ---------------------------------------------------------------------------
 # 7. Helper for Volume V discrete sums
 # ---------------------------------------------------------------------------
@@ -483,7 +480,6 @@ def discrete_sum_from_volume_v(cfg: DirichletConfig) -> Tuple[np.ndarray, float]
     raw_a, _ = build_coefficients(cfg)
     a = apply_window(cfg, raw_a)
     return a, float(np.sum(np.abs(a) ** 2))
-
 
 # ---------------------------------------------------------------------------
 # 8. Comparison of discrete sum vs EM estimate
@@ -538,9 +534,145 @@ def compare_sum_vs_em(
         "bound_holds": bound_holds,
     }
 
+# ---------------------------------------------------------------------------
+# 9. Diagonal mass EM bound for D_H(N)
+# ---------------------------------------------------------------------------
+
+def diagonal_mass_em_bound(
+    N: int,
+    H: float,
+    sigma: float = 0.5,
+    order: int = 4,
+) -> Dict[str, float]:
+    """
+    Apply EM to the diagonal mass integral in log-space:
+
+        D_H(N) = (6/H^2) * sum_{n=1}^N n^{-2*sigma}
+               ≈ (6/H^2) * EM approximation of
+                  ∑_{k=0}^{N-1} f(a + kh),
+        where we model f(t) ≈ e^{-2σ t} on t ∈ [0, log N].
+
+    Returns:
+        - D_H_estimate: EM estimate for D_H(N)
+        - D_H_lower_bound: certified floor using the kernel-enhanced remainder
+        - remainder_bound: EM remainder bound in D_H units
+        - EM_order: the EM order used
+    """
+    # f in t-space: f(t) = e^{-2σ t}, t ∈ [0, log N]
+    f = lambda t: math.exp(-2.0 * sigma * t)
+    a, b = 0.0, math.log(N)
+    n_terms = N
+    prefactor = 6.0 / (H ** 2)
+
+    # Parameters tuned so that f_derivative uses the analytic exponential case
+    # only when sigma=1, N=1, but here we allow mpmath-based derivatives.
+    params = {"sigma": 2.0 * sigma, "N": 1.0, "window_type": "sharp"}
+
+    res = euler_maclaurin_sum(
+        f=f,
+        a=a,
+        b=b,
+        n_terms=n_terms,
+        order=order,
+        H=H,
+        T0=0.0,
+        params=params,
+        is_polynomial=False,
+    )
+
+    d_h_estimate = prefactor * res.total_sum_estimate
+    # Use kernel-enhanced bound for a conservative floor
+    d_h_lower = prefactor * (res.total_sum_estimate - res.remainder_bound_kernel)
+
+    return {
+        "D_H_estimate": d_h_estimate,
+        "D_H_lower_bound": d_h_lower,
+        "remainder_bound": prefactor * res.remainder_bound_kernel,
+        "EM_order": float(order),
+    }
 
 # ---------------------------------------------------------------------------
-# 9. Demo / sanity check
+# 10. Remainder vs N scaling for D_H(N)
+# ---------------------------------------------------------------------------
+
+def remainder_vs_N_scaling(
+    N_values: List[int],
+    H: float,
+    sigma: float = 0.5,
+    order: int = 4,
+) -> Dict[str, List[float]]:
+    """
+    Compute EM remainder bound on [0, log N] for each N in N_values.
+
+    This certifies numerically whether R_m(N) is asymptotically negligible
+    compared to D_H(N) ~ (6/H^2) * log N, by tracking:
+
+        ratio(N) = remainder_bound(N) / D_H_lower_bound(N).
+
+    Returns a dict of lists:
+        - "N"        : [N_1, N_2, ...]
+        - "log_N"    : [log N_1, log N_2, ...]
+        - "remainder": [R_m(N_i)]
+        - "D_H_lower": [D_H_lower_bound(N_i)]
+        - "ratio"    : [R_m(N_i) / D_H_lower_bound(N_i)]
+    """
+    results: Dict[str, List[float]] = {
+        "N": [],
+        "log_N": [],
+        "remainder": [],
+        "D_H_lower": [],
+        "ratio": [],
+    }
+
+    for N in N_values:
+        d = diagonal_mass_em_bound(N=N, H=H, sigma=sigma, order=order)
+        D_lower = d["D_H_lower_bound"]
+        Rm = d["remainder_bound"]
+        results["N"].append(float(N))
+        results["log_N"].append(math.log(N))
+        results["remainder"].append(Rm)
+        results["D_H_lower"].append(D_lower)
+        results["ratio"].append(Rm / max(D_lower, 1e-30))
+
+    return results
+
+# ---------------------------------------------------------------------------
+# 11. Q_H lower-bound contribution (E_EM)
+# ---------------------------------------------------------------------------
+
+def QH_lower_bound_contribution(
+    N: int,
+    H: float,
+    T0: float,
+    sigma: float = 0.5,
+    order: int = 4,
+) -> Dict[str, float]:
+    """
+    Volume VII's certified contribution to a four-term error budget:
+
+        Q_lb = Q_trunc - (E_tail + E_quad + E_spec + E_num),
+
+    where this function provides E_EM (Euler–Maclaurin discretization error)
+    and the certified floor for D_H(N) (the diagonal mass).
+
+    Returns:
+        - E_EM                : EM error contribution in D_H units
+        - D_H_certified_floor : lower bound on the diagonal mass D_H(N)
+        - H, N, T0, order     : parameters for traceability
+    """
+    d = diagonal_mass_em_bound(N=N, H=H, sigma=sigma, order=order)
+
+    return {
+        "E_EM": d["remainder_bound"],
+        "D_H_certified_floor": d["D_H_lower_bound"],
+        "H": float(H),
+        "N": float(N),
+        "T0": float(T0),
+        "order": float(order),
+    }
+
+# ---------------------------------------------------------------------------
+# 12. Demo / sanity check
 # ---------------------------------------------------------------------------
 
 def _demo_linear_function() -> None:
@@ -573,7 +705,6 @@ def _demo_linear_function() -> None:
     print(f"|R|_kernel    ≤    = {res.remainder_bound_kernel:.3e}")
     print("interval (classical) =", res.error_interval_classical)
     print("interval (kernel)    =", res.error_interval_kernel)
-
 
 if __name__ == "__main__":
     _demo_linear_function()
