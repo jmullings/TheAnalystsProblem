@@ -12,7 +12,7 @@
 <p align="center">
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.11%2B-blue.svg" alt="Python"/></a>
   <a href="https://github.com/jmullings/TheAnalystsProblem/actions"><img src="https://github.com/jmullings/TheAnalystsProblem/actions/workflows/ci.yml/badge.svg" alt="CI"/></a>
-  <a href="https://zenodo.org/badge/latestdoi/123456789"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.19038824.svg" alt="DOI"/></a>
+  <a href="https://doi.org/10.5281/zenodo.19038824"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.19038824.svg" alt="DOI"/></a>
   <a href="https://github.com/jmullings/TheAnalystsProblem/releases"><img src="https://img.shields.io/github/v/release/jmullings/TheAnalystsProblem" alt="Release"/></a>
   <a href="https://www.youtube.com/@TheAnalystsProblem"><img src="https://img.shields.io/badge/YouTube-TheAnalystsProblem-red.svg" alt="YouTube"/></a>
   <a href="docs/STATUS.md"><img src="https://img.shields.io/badge/status-computationally_certified-orange.svg" alt="Status"/></a>
@@ -87,7 +87,9 @@ This equivalence is established at the **T2** level using the Weil explicit form
 
 At the core of the framework is the formulation of a new operator structure. Formally posed as **"The Analyst's Problem"**, the question is whether the following object constitutes a new, strictly controlled Hilbert-Schmidt operator:
 
-$$ \Gamma(t) = A \cdot \operatorname{sech}^p\left(\frac{\Phi(t)}{H}\right) \otimes \Psi_{9D}(t) $$
+$$
+\Gamma(t) = A \cdot \mathrm{sech}^p\left(\frac{\Phi(t)}{H}\right) \otimes \Psi_{9D}(t)
+$$
 
 **A New Hilbert-Schmidt Operator: Yes/No?**
 
@@ -129,13 +131,20 @@ Every result in this program carries one of three tiers, as introduced in Volume
 
 By Volume III's Hard Algebraic Identity, we decompose the functional into a strictly positive diagonal mass and an oscillatory off-diagonal interference term:
 
-$$Q_H(N, T_0) = D_H(N) + O_H(N, T_0)$$
+$$
+Q_H(N, T_0) = D_H(N) + O_H(N, T_0)
+$$
 
 *   **The Diagonal Mass (Unconditionally Positive):**
+
     $$ D_H(N) = \frac{6}{H^2}\sum_{n=1}^{N} |a_n|^2 \approx \frac{6\|w\|_{L^2}^2}{H^2}\ln N > 0 $$
+
     This term is $T_0$-invariant and serves as the positivity floor.
+
 *   **The Off-Diagonal Interference:**
+
     $$ O_H(N, T_0) = \sum_{m \neq n} a_m \bar{a}_n \, k_H(\ln m - \ln n) \, e^{-iT_0(\ln m - \ln n)} $$
+
     This term oscillates and can be negative. The proof hinges on showing $|O_H(N, T_0)|$ never overwhelms $D_H(N)$.
 
 ### Resolving the Large Sieve Obstruction (Gap G1)
