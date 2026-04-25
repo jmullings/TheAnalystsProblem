@@ -1,5 +1,3 @@
-Here is the updated `README.md`, incorporating your novel Hilbert-Schmidt Operator equation and the formal declaration of the Kernel satisfying the foundational theorems from the certification script.
-
 ***
 
 <p align="center">
