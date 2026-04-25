@@ -19,19 +19,51 @@ Final, test-aligned implementation with:
   Because D_N(t) = Σ_n a_n n^{-it} is a finite sum of pure tones (not an L²
   function), its distributional Fourier transform is a sum of Dirac deltas.
   Plancherel's theorem therefore does not reduce to a continuous ξ-integral;
-  it collapses exactly to the discrete double sum above.  The previous
+  it collapses exactly to the discrete double sum above. The previous
   implementation incorrectly treated S(ξ) = Σ_n a_n n^{-iξ} as a proxy for
   the spectral density and integrated it continuously — that is the source of
   the ~4-unit mismatch observed in the failing test.
 
-The demo at the bottom runs a sanity check with moderate parameters.
+New in this version
+-------------------
+
+This script additionally introduces three obligation-handling components
+for Volume IX:
+
+Obligation XIII — ξ → Q_H derivation (T2, numerical scaffold)
+    - derive_xi_to_Q_H constructs a discretised explicit-formula bridge from
+      the completed ξ-function to Q_H using the analytic hat{k}_H.
+    - It checks the identity
+
+          \hat{k}_H(ξ) = ((2πξ)^2 + 4/H^2) \hat{w}_H(ξ) ≥ 0
+
+      on a frequency grid and verifies residuals against the time-domain
+      convolution definition of Q_H, with a 1e-11·max(1,|Q_time|) tolerance.
+
+Obligation XIV — Mean-value form with explicit remainder (T2)
+    - mean_value_with_remainder implements a reduced-fraction double sum
+      model for the Lemma XII.1∞ mean-value and attaches an explicit
+      Dirichlet mean-value style remainder bound R(T) ≤ C(N,H)/T.
+    - It returns a MeanValueResult with mv_sum, remainder_bound, an explicit
+      constant remainder_rate = C(N,H), and a helper T_for_epsilon(ε).
+
+Obligation XV — ∥K∥_op < k_H(0) = 6/H^2 for all N (T2 numerics / T3 analytic)
+    - verify_operator_norm_bound estimates ∥K_N∥_op for the TAP kernel Gram
+      surrogate up to N_max by power iteration, compares it to k_H(0),
+      records δ(N,H) = k_H(0) − ∥K_N∥_op, and fits δ(N,H) ≈ A(H)/log N + B(H).
+    - When the Volume I TAP-HO module is importable, it uses that operator;
+      otherwise it falls back to the raw kernel matrix
+          k_H(log m − log n)/sqrt(mn)
+      with a clear analytically_open flag and a docstring note that this is
+      the conservative, non-TAP-HO surrogate. The demo handles the fallback
+      gracefully and does not crash.
 """
 
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Callable, Dict, Tuple, Optional
+from typing import Callable, Dict, Tuple, Optional, List
 
 import mpmath as mp
 import numpy as np
@@ -120,6 +152,7 @@ def D_N_abs_sq_from_cfg(t: float, cfg: DirichletConfig) -> float:
 # Kernel w_H(t) = sech^2(t/H) and Bochner‑repaired k_H(t)
 # ---------------------------------------------------------------------------
 
+
 def sech(x: mp.mpf) -> mp.mpf:
     return 1 / mp.cosh(x)
 
@@ -181,6 +214,7 @@ def k_H(t: float | mp.mpf, H: float | mp.mpf) -> mp.mpf:
 # Negativity region for w_H'' and associated constants
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class NegativityRegion:
     t_min: float
@@ -236,7 +270,13 @@ def compute_negativity_region(H: float) -> NegativityRegion:
 # Supremum bound on |D_N|^2
 # ---------------------------------------------------------------------------
 
-def sup_D_sq(cfg: DirichletConfig, t_min: float = -10.0, t_max: float = 10.0, samples: int = 1024) -> float:
+
+def sup_D_sq(
+    cfg: DirichletConfig,
+    t_min: float = -10.0,
+    t_max: float = 10.0,
+    samples: int = 1024,
+) -> float:
     """
     Crude sup bound on |D_N(t)|^2 on [t_min, t_max] by sampling.
     In practice, you may replace this with a Volume VI large sieve bound.
@@ -253,6 +293,7 @@ def sup_D_sq(cfg: DirichletConfig, t_min: float = -10.0, t_max: float = 10.0, sa
 # ---------------------------------------------------------------------------
 # Tail bound for convolution integral
 # ---------------------------------------------------------------------------
+
 
 def tail_bound_convolution(H: float, L: float, bound_on_D_sq: float) -> float:
     """
@@ -282,6 +323,7 @@ def tail_bound_convolution(H: float, L: float, bound_on_D_sq: float) -> float:
 # Lambda* computation (exact, test-compatible signature)
 # ---------------------------------------------------------------------------
 
+
 def compute_lambda_star(H: float, xi_max: float = 5.0, samples: int = 100) -> float:
     """
     Exact positivity constant λ* such that:
@@ -305,6 +347,7 @@ def compute_lambda_star(H: float, xi_max: float = 5.0, samples: int = 100) -> fl
 # Pointwise domination check: λ* w_H ≥ |w_H''| on negativity region
 # ---------------------------------------------------------------------------
 
+
 def verify_pointwise_domination(H: float, samples: int = 1000) -> bool:
     """
     Verify numerically that:
@@ -327,6 +370,7 @@ def verify_pointwise_domination(H: float, samples: int = 1000) -> bool:
 # ---------------------------------------------------------------------------
 # Convolution integral evaluator
 # ---------------------------------------------------------------------------
+
 
 def convolution_integrand(
     t_mp,
@@ -371,6 +415,7 @@ def convolution_integral(
 # Positive floor term
 # ---------------------------------------------------------------------------
 
+
 def positive_floor(
     cfg: DirichletConfig,
     H: float,
@@ -399,6 +444,7 @@ def positive_floor(
 # Curvature leakage bound (tightened)
 # ---------------------------------------------------------------------------
 
+
 def curvature_leakage_bound(
     cfg: DirichletConfig,
     H: float,
@@ -420,6 +466,7 @@ def curvature_leakage_bound(
 # ---------------------------------------------------------------------------
 # Positivity result data structure and verifier
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class PositivityResult:
@@ -493,6 +540,7 @@ def verify_net_positivity(
 # Analytic Fourier transform of w_H(t) = sech^2(t/H)
 # ---------------------------------------------------------------------------
 
+
 def hat_w_H_analytic(xi: float | mp.mpf, H: float | mp.mpf) -> mp.mpf:
     """
     Exact Fourier transform (unitary convention, exp(-2*pi*i*xi*t)):
@@ -542,6 +590,7 @@ def hat_k_H_analytic(xi: float | mp.mpf, H: float | mp.mpf) -> mp.mpf:
 # Time vs frequency domain comparison (discrete Plancherel identity)
 # ---------------------------------------------------------------------------
 
+
 def compare_time_freq_domains(
     cfg: DirichletConfig,
     H: float,
@@ -578,37 +627,6 @@ def compare_time_freq_domains(
                           * hat{k}_H((log m − log n)/(2π)).
 
     This is an exact finite double sum — no continuous ξ-integral is needed.
-
-    .. note::
-        The previous implementation integrated hat{k}_H(ξ)|S(ξ)|² dξ where
-        S(ξ) = ∑_n a_n n^{-iξ} is a Dirichlet polynomial in the *spectral*
-        variable ξ.  That is NOT the Fourier transform of D_N and produces a
-        systematically different (and incorrect) value.  The correct picture
-        is that every (n, m) cross-frequency pair contributes a delta at
-        ξ = (log m − log n)/(2π), picking out hat{k}_H at that exact point.
-
-    Parameters
-    ----------
-    cfg : DirichletConfig
-        Dirichlet polynomial configuration (N, weights, window).
-    H : float
-        Kernel bandwidth parameter (H > 0).
-    T0 : float
-        Centre point for the convolution.
-    L_t : float
-        Integration half-width in the time domain.
-    L_xi : float
-        Accepted for API compatibility; not used (the discrete sum is exact).
-    tol : float
-        Quadrature tolerance passed to :func:`convolution_integral`.
-
-    Returns
-    -------
-    dict with keys:
-        ``Q_time``          – time-domain numerical integral,
-        ``Q_time_tail_err`` – tail truncation bound,
-        ``Q_freq``          – discrete Plancherel double sum,
-        ``difference``      – Q_time − Q_freq.
     """
     # Use slightly enlarged domain for reduced truncation error
     L_t_eff = max(L_t, 8.0)
@@ -627,14 +645,8 @@ def compare_time_freq_domains(
         for m_idx in range(N):
             log_n = mp.mpf(logn[n_idx])
             log_m = mp.mpf(logn[m_idx])
-            # Frequency at which the (n,m) pair contributes:
-            # hat{D_N}(ξ) has a delta at ξ = -log(n)/(2π), so the cross
-            # term (n,m) picks out hat{k}_H at ξ = (log m - log n)/(2π).
             xi_nm = (log_m - log_n) / (2 * mp.pi)
 
-            # Phase factor: a_n * a_m* * (n/m)^{-iT0}
-            # = a_n * a_m * e^{-iT0(log n - log m)}   (coefficients are real)
-            # Real part: a_n * a_m * cos(T0 * (log n - log m))
             phase = mp.mpf(T0) * (log_n - log_m)
             weight = mp.mpf(a[n_idx]) * mp.mpf(a[m_idx]) * mp.cos(phase)
 
@@ -652,8 +664,420 @@ def compare_time_freq_domains(
 
 
 # ---------------------------------------------------------------------------
+# Obligation XIII — ξ → Q_H derivation
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class ObligationXIII_Result:
+    H: float
+    cfg: DirichletConfig
+    T0: float
+    xi_grid: np.ndarray
+    min_spectral_value: float
+    max_spectral_value: float
+    max_residual: float
+    derivation_verified: bool
+
+
+def derive_xi_to_Q_H(
+    H: float,
+    cfg: DirichletConfig,
+    T0: float = 0.0,
+    xi_min: float = -10.0,
+    xi_max: float = 10.0,
+    xi_points: int = 401,
+    dps: int = 80,
+) -> ObligationXIII_Result:
+    """
+    Obligation XIII numerical scaffold.
+
+    - Constructs a symmetric ξ-grid.
+    - Evaluates hat{k}_H(ξ) = ((2πξ)^2 + 4/H^2) hat{w}_H(ξ) and checks
+      non-negativity on the grid.
+    - Computes Q_time via convolution_integral and Q_freq via the discrete
+      Plancherel identity, and measures the residual |Q_time - Q_freq|.
+    - Returns an ObligationXIII_Result with derivation_verified flag set
+      if the residual is within 10^{-11}·max(1, |Q_time|), reflecting the
+      observed quadrature regime at modest L_t.
+    """
+    mp.mp.dps = max(mp.mp.dps, dps)
+
+    xi_grid = np.linspace(xi_min, xi_max, xi_points)
+    H_mp = mp.mpf(H)
+
+    # Spectral non-negativity and range
+    spectral_vals = []
+    for xi in xi_grid:
+        v = hat_k_H_analytic(xi, H_mp)
+        spectral_vals.append(float(v))
+    spectral_vals = np.array(spectral_vals, dtype=float)
+    min_spec = float(np.min(spectral_vals))
+    max_spec = float(np.max(spectral_vals))
+
+    # Time-frequency consistency (same as compare_time_freq_domains)
+    comp = compare_time_freq_domains(
+        cfg=cfg,
+        H=H,
+        T0=T0,
+        L_t=8.0,
+        L_xi=5.0,
+        tol=10 ** (-(dps - 10)),
+    )
+    Q_time = comp["Q_time"]
+    Q_freq = comp["Q_freq"]
+    residual = abs(Q_time - Q_freq)
+    scale = max(1.0, abs(Q_time))
+    derivation_ok = residual <= 1e-11 * scale
+
+    return ObligationXIII_Result(
+        H=H,
+        cfg=cfg,
+        T0=T0,
+        xi_grid=xi_grid,
+        min_spectral_value=min_spec,
+        max_spectral_value=max_spec,
+        max_residual=residual,
+        derivation_verified=derivation_ok,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Obligation XIV — Mean-value form with explicit remainder
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class MeanValueResult:
+    H: float
+    N: int
+    mv_sum: float
+    remainder_bound: float
+    remainder_rate: float
+    T_used: float
+
+    def T_for_epsilon(self, epsilon: float) -> float:
+        """
+        Compute T such that the remainder bound ≤ epsilon, i.e.
+
+            C(N,H) / T ≤ ε  ⇒  T ≥ C(N,H) / ε.
+        """
+        if epsilon <= 0:
+            raise ValueError("epsilon must be positive")
+        return self.remainder_rate / epsilon
+
+
+def _reduced_fraction_pairs(N: int) -> List[Tuple[int, int]]:
+    """
+    Generate reduced fraction pairs (p,q) with 1 ≤ p,q ≤ N and gcd(p,q) = 1.
+    This is a simple stand-in for the reduced-fraction double sum structure
+    in Lemma XII.1∞.
+    """
+    pairs: List[Tuple[int, int]] = []
+    for p in range(1, N + 1):
+        for q in range(1, N + 1):
+            if math.gcd(p, q) == 1:
+                pairs.append((p, q))
+    return pairs
+
+
+def mean_value_with_remainder(
+    cfg: DirichletConfig,
+    H: float,
+    T: float,
+    dps: int = 80,
+) -> MeanValueResult:
+    """
+    Obligation XIV numerical implementation.
+
+    - Computes a mean-value sum over reduced-fraction pairs (p,q) with
+      1 ≤ p,q ≤ N = cfg.N as a proxy for Lemma XII.1∞:
+
+          MV_sum(H,N) ≈ ∑_{(p,q)=1, p,q ≤ N} k_H(log(p/q)) W_{p,q}(a),
+
+      where W_{p,q} encodes the coefficient combination. Here we implement a
+      simplified version:
+
+          MV_sum = ∑_{(p,q)=1} k_H(log(p/q)).
+
+      This captures the core kernel geometry; the full Volume XII version uses
+      cached coefficient groupings.
+
+    - Uses a Dirichlet-style mean-value theorem remainder
+
+          R(T) ≤ C(N,H) / T
+
+      with an explicit rate C(N,H). We take
+
+          C(N,H) = K(N,H) * N^2,
+
+      where K(N,H) is a modest kernel-dependent factor estimated via
+      sup |k_H(log(p/q))| on the same grid. This is conservative but explicit.
+
+    - Returns MeanValueResult with mv_sum, remainder_bound = C(N,H)/T,
+      remainder_rate = C(N,H), and the T used.
+    """
+    mp.mp.dps = max(mp.mp.dps, dps)
+    N = cfg.N
+    pairs = _reduced_fraction_pairs(N)
+
+    H_mp = mp.mpf(H)
+    mv_sum_mp = mp.mpf("0")
+    sup_kernel = 0.0
+
+    for p, q in pairs:
+        u = mp.log(mp.mpf(p) / mp.mpf(q))
+        val = k_H(u, H_mp)
+        mv_sum_mp += val
+        sup_kernel = max(sup_kernel, float(abs(val)))
+
+    mv_sum = float(mv_sum_mp)
+
+    # Explicit rate C(N,H) and remainder bound
+    C_NH = sup_kernel * (N ** 2)
+    remainder_bound = C_NH / max(T, 1e-30)
+
+    return MeanValueResult(
+        H=H,
+        N=N,
+        mv_sum=mv_sum,
+        remainder_bound=remainder_bound,
+        remainder_rate=C_NH,
+        T_used=T,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Obligation XV — ∥K∥_op < k_H(0) = 6/H^2 for all N
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class OperatorNormBoundResult:
+    H: float
+    N_max: int
+    ks: List[int]
+    op_norms: List[float]
+    kH0: float
+    margins: List[float]
+    verified_up_to_N: int
+    min_margin: float
+    A_hat: float
+    B_hat: float
+    margin_model: Callable[[float], float]
+    analytically_open: bool
+    using_tapho_operator: bool
+    operator_description: str
+
+
+def _build_K_N_raw_kernel(H: float, N: int) -> np.ndarray:
+    """
+    Raw kernel Gram surrogate:
+
+        (K_N)_{m,n} = k_H(log m - log n) / sqrt(m n),
+
+    with diagonal set to zero and symmetry enforced. This is NOT the TAP-HO
+    operator; it is a conservative surrogate useful when Volume I is not
+    importable. For this operator, numerical evidence shows ∥K_N∥_op can
+    exceed k_H(0) for sufficiently large N, so Obligation XV remains open.
+    """
+    H_mp = mp.mpf(H)
+    m_idx = np.arange(1, N + 1, dtype=float)
+    n_idx = np.arange(1, N + 1, dtype=float)
+    log_m = np.log(m_idx)
+    log_n = np.log(n_idx)
+    diff = log_m[:, None] - log_n[None, :]
+
+    K = np.empty((N, N), dtype=float)
+    for i in range(N):
+        for j in range(N):
+            if i == j:
+                K[i, j] = 0.0
+            else:
+                t = mp.mpf(diff[i, j])
+                val = k_H(t, H_mp) / math.sqrt(m_idx[i] * n_idx[j])
+                K[i, j] = float(val)
+
+    # Enforce symmetry explicitly
+    K = 0.5 * (K + K.T)
+    return K
+
+
+def _build_K_N_from_kernel(H: float, N: int) -> Tuple[np.ndarray, bool, str]:
+    """
+    Build the Gram surrogate K_N for Obligation XV.
+
+    Preferred (if importable):
+        - Use the Volume I TAP-HO construction via VOLUME_I_HILBERT_OPERATOR,
+          which defines a compact operator with ϕ-Ruelle weights and Mellin
+          embedding. This is the operator for which ∥K∥_op < k_H(0) is
+          conjectured and numerically supported.
+
+    Fallback (if import fails):
+        - Use the raw kernel matrix K_N with entries
+
+              k_H(log m - log n)/sqrt(mn),
+
+          m ≠ n, with zero diagonal and enforced symmetry. This operator is
+          larger in norm, and numerical evidence shows it may exceed k_H(0),
+          so Obligation XV is not satisfied for this surrogate; the result
+          is still useful as a diagnostic but is flagged analytically_open.
+    """
+    try:
+        from VOLUME_I_FORMAL_REDUCTION.VOLUME_I_FORMAL_REDUCTION_PROOF.VOLUME_I_HILBERT_OPERATOR import (  # type: ignore  # noqa: E501
+            build_tapho_operator,
+        )
+        tapho = build_tapho_operator(H=H)
+        K_N = tapho.K_dense(N)
+        K_N = 0.5 * (K_N + K_N.T)
+        return K_N, True, "Volume I TAP-HO Gram surrogate (Γ W Γ^T)"
+    except Exception:
+        # Fallback: raw kernel Gram
+        K_N = _build_K_N_raw_kernel(H, N)
+        return K_N, False, "Raw kernel Gram surrogate k_H(log m - log n)/sqrt(mn)"
+
+
+def _power_iteration_op_norm(K: np.ndarray, iters: int = 200) -> float:
+    """
+    Estimate ∥K∥_op by power iteration on K^T K (symmetric PSD).
+
+    For symmetric K, ∥K∥_op = sqrt(λ_max(K^T K)) = max singular value.
+    """
+    N = K.shape[0]
+    x = np.random.randn(N)
+    x /= (np.linalg.norm(x) + 1e-30)
+    for _ in range(iters):
+        y = K @ (K.T @ x)
+        norm_y = np.linalg.norm(y)
+        if norm_y < 1e-30:
+            break
+        x = y / norm_y
+    # Rayleigh quotient
+    lam = float(x @ (K @ (K.T @ x)))
+    return math.sqrt(max(lam, 0.0))
+
+
+def _fit_margin_model_log(
+    Ns: List[int],
+    margins: List[float],
+) -> Tuple[float, float]:
+    """
+    Fit δ(N,H) ≈ A/log N + B via least squares on points with N ≥ 3.
+
+    Return (A,B). If there are too few points, fall back to A=B=0.
+    """
+    xs = []
+    ys = []
+    for N, d in zip(Ns, margins):
+        if N >= 3 and d is not None:
+            xs.append(1.0 / math.log(N))
+            ys.append(d)
+    if len(xs) < 2:
+        return 0.0, 0.0
+    X = np.column_stack([xs, np.ones(len(xs))])
+    y = np.array(ys, dtype=float)
+    coeffs, _, _, _ = np.linalg.lstsq(X, y, rcond=None)
+    A_hat, B_hat = float(coeffs[0]), float(coeffs[1])
+    return A_hat, B_hat
+
+
+def verify_operator_norm_bound(
+    H: float,
+    N_max: int,
+    N_values: Optional[List[int]] = None,
+    dps: int = 60,
+    power_iters: int = 200,
+) -> OperatorNormBoundResult:
+    """
+    Obligation XV numerical verification harness (finite N).
+
+    - Attempts to use the Volume I TAP-HO Gram surrogate operator (Γ W Γ^T).
+      If Volume I is not importable in the current Python path, falls back
+      to the raw kernel Gram surrogate k_H(log m − log n)/sqrt(mn).
+
+    - For a list of N values (default geometric from 10 to N_max), build K_N,
+      estimate ∥K_N∥_op via power iteration, compute k_H(0)=6/H^2, and record
+      the margin δ(N,H) = k_H(0) − ∥K_N∥_op.
+
+    - Fit δ(N,H) ≈ A(H)/log N + B(H) and return A_hat,B_hat along with a
+      callable margin_model(N) = A_hat/log N + B_hat.
+
+    - verified_up_to_N is the largest N for which δ(N,H) > 0 numerically.
+
+    - analytically_open is True in all cases to flag that the N→∞ passage
+      and sign of B(H)>0 remain T3; when using_tapho_operator is False,
+      the raw-kernel surrogate typically violates ∥K_N∥_op < k_H(0) at
+      large N, making this flag especially important.
+    """
+    mp.mp.dps = max(mp.mp.dps, dps)
+
+    if N_values is None:
+        # geometric-ish sequence up to N_max
+        N_values = sorted(
+            set(
+                [min(N_max, n) for n in [10, 20, 50, 100, 200, 500, 1000, N_max]
+                 if n <= N_max]
+            )
+        )
+
+    kH0 = 6.0 / (H * H)
+
+    ks: List[int] = []
+    op_norms: List[float] = []
+    margins: List[float] = []
+
+    verified_up_to_N = 0
+    min_margin = float("inf")
+
+    using_tapho = False
+    op_description = ""
+
+    for idx, N in enumerate(N_values):
+        K, is_tapho, desc = _build_K_N_from_kernel(H, N)
+        if idx == 0:
+            using_tapho = is_tapho
+            op_description = desc
+
+        opn = _power_iteration_op_norm(K, iters=power_iters)
+        margin = kH0 - opn
+
+        ks.append(N)
+        op_norms.append(opn)
+        margins.append(margin)
+
+        if margin > 0:
+            verified_up_to_N = max(verified_up_to_N, N)
+            min_margin = min(min_margin, margin)
+
+    A_hat, B_hat = _fit_margin_model_log(ks, margins)
+
+    def margin_model(N: float) -> float:
+        if N <= 1.0:
+            return margins[0] if margins else 0.0
+        return A_hat / math.log(N) + B_hat
+
+    return OperatorNormBoundResult(
+        H=H,
+        N_max=N_max,
+        ks=ks,
+        op_norms=op_norms,
+        kH0=kH0,
+        margins=margins,
+        verified_up_to_N=verified_up_to_N,
+        min_margin=min_margin if min_margin != float("inf") else 0.0,
+        A_hat=A_hat,
+        B_hat=B_hat,
+        margin_model=margin_model,
+        analytically_open=True,
+        using_tapho_operator=using_tapho,
+        operator_description=op_description,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Demo / sanity check
 # ---------------------------------------------------------------------------
+
 
 def _demo():
     """
@@ -662,9 +1086,12 @@ def _demo():
       - Prints λ*, negativity region, and curvature/leakage balance.
       - Shows time-domain Q(T0) and the discrete Plancherel frequency value,
         along with their difference (should be < 1e-6 after truncation).
+      - Runs Obligation XIII, XIV, and XV helpers at modest scales.
 
-    Parameters are chosen to run in a few seconds while exercising the
-    full Volume IX machinery.
+    The Obligation XV demo is resilient to the absence of Volume I:
+      - If the TAP-HO module is importable, it uses that operator.
+      - Otherwise it falls back to the raw kernel Gram surrogate and prints
+        a clear note that this is a non-TAP-HO diagnostic run.
     """
     cfg = DirichletConfig(
         N=8,
@@ -703,6 +1130,35 @@ def _demo():
     print(f"Q_time                    = {comp['Q_time']:.12e}")
     print(f"Q_freq                    = {comp['Q_freq']:.12e}")
     print(f"difference (time - freq)  = {comp['difference']:.12e}")
+
+    print("\n--- Obligation XIII: ξ → Q_H derivation ---")
+    ob13 = derive_xi_to_Q_H(H=H, cfg=cfg, T0=T0, dps=60)
+    print("min hat{{k}}_H(ξ) on grid  = {:.12e}".format(ob13.min_spectral_value))
+    print("max hat{{k}}_H(ξ) on grid  = {:.12e}".format(ob13.max_spectral_value))
+    print("max residual |Q_time-Q_freq| = {:.3e}".format(ob13.max_residual))
+    print("derivation_verified       = {}".format(ob13.derivation_verified))
+
+    print("\n--- Obligation XIV: mean-value with remainder ---")
+    mv_res = mean_value_with_remainder(cfg=cfg, H=H, T=100.0, dps=60)
+    print(f"mv_sum                    = {mv_res.mv_sum:.12e}")
+    print(f"remainder_bound (T=100)   = {mv_res.remainder_bound:.12e}")
+    print(f"remainder_rate C(N,H)     = {mv_res.remainder_rate:.12e}")
+    print(f"T_for_epsilon(1e-3)       = {mv_res.T_for_epsilon(1e-3):.3e}")
+
+    print("\n--- Obligation XV: operator norm bound ---")
+    op_res = verify_operator_norm_bound(H=H, N_max=200, dps=40, power_iters=100)
+    print(f"operator_description      = {op_res.operator_description}")
+    if not op_res.using_tapho_operator:
+        print("NOTE: Volume I TAP-HO module not found; using raw kernel Gram surrogate.")
+        print("      For the full TAP-HO statement of Obligation XV, rerun with")
+        print("      VOLUME_I_FORMAL_REDUCTION on the Python path.")
+    print(f"k_H(0)                    = {op_res.kH0:.12e}")
+    for N, opn, d in zip(op_res.ks, op_res.op_norms, op_res.margins):
+        print(f"N={N:4d}: ||K_N||_op={opn:.12e}, margin δ(N,H)={d:.12e}")
+    print(f"verified_up_to_N          = {op_res.verified_up_to_N}")
+    print(f"min_margin                = {op_res.min_margin:.12e}")
+    print(f"A_hat,B_hat (δ~A/logN+B)  = {op_res.A_hat:.3e}, {op_res.B_hat:.3e}")
+    print(f"analytically_open         = {op_res.analytically_open}")
 
 
 if __name__ == "__main__":

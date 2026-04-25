@@ -40,7 +40,17 @@ CHANGELOG (this revision)
      Q(N)/log(N) across a large N grid using ratio bands and a 5% variance
      criterion. The semantics are unchanged; only docstrings are tightened.
 
-4. No functional changes to:
+4. Operator-Theoretic Hilbert Operator module (Module 14) added:
+   - Introduces a diagnostic, matrix-free analysis of the off-diagonal
+     Hilbert-operator kernel
+
+         K_{m,n} = (1 / sqrt(mn)) * k_H(log m - log n),
+
+     verifying Hilbert–Schmidt boundedness, compactness, and cross-dimensional
+     coherence via Hilbert–Schmidt and operator norms, plus block-consistency
+     between K_N and K_{2N}. This lives outside the Q(H,T0;N) proof path.
+
+5. No functional changes to:
    - Modules 1–10, 12–13 (verification suite)
    - Grid structure of the rigorous harness
    - External APIs and imports
@@ -86,6 +96,18 @@ from VOLUME_IX_CONVOLUTION_POSITIVITY.VOLUME_IX_CONVOLUTION_POSITIVITY_PROOF.VOL
     compare_time_freq_domains,
 )
 
+from VOLUME_XI_COMPUTATIONAL.VOLUME_XI_COMPUTATIONAL_PROOF.operators.ho_kernel import (  # type: ignore  # noqa
+    log_grid,
+    kernel_profile,
+)
+from VOLUME_XI_COMPUTATIONAL.VOLUME_XI_COMPUTATIONAL_PROOF.operators.ho_builder import (  # type: ignore  # noqa
+    hs_norm_fast,
+    operator_norm_power,
+    block_error_fast,
+)
+from VOLUME_XI_COMPUTATIONAL.VOLUME_XI_COMPUTATIONAL_PROOF.operators.ho_analysis import (  # type: ignore  # noqa
+    module14_operator_theoretic_boundedness_raw,
+)
 # ---------------------------------------------------------------------------
 # Global numerical controls (verification suite level)
 # ---------------------------------------------------------------------------
@@ -953,6 +975,29 @@ def module13_error_budget() -> List[XIResult]:
 
 
 # ---------------------------------------------------------------------------
+# MODULE 14 — Operator-Theoretic Boundedness (TAP HO)
+# ---------------------------------------------------------------------------
+
+def module14_operator_theoretic_boundedness() -> List[XIResult]:
+    """
+    Wrap the raw TAP HO diagnostics into XIResult objects.
+
+    The heavy lifting (Hilbert–Schmidt norm, operator norm, block coherence)
+    lives in operators/ho_analysis.py and operators/ho_builder.py.
+    """
+    rows = module14_operator_theoretic_boundedness_raw()
+    results: List[XIResult] = []
+    for module_name, test_name, passed, details in rows:
+        results.append(
+            XIResult(
+                module=module_name,
+                name=test_name,
+                passed=passed,
+                details=details,
+            )
+        )
+    return results
+# ---------------------------------------------------------------------------
 # Master runner (verification suite)
 # ---------------------------------------------------------------------------
 
@@ -1023,6 +1068,8 @@ def run_volume_XI_suite(num_random_samples: int = 300) -> List[XIResult]:
          module12_adversarial_worst_case),
         ("VOLUME XI — Module 13: Error Budget Decomposition",
          module13_error_budget),
+        ("VOLUME XI — Module 14: Operator-Theoretic Boundedness (TAP HO)",
+         module14_operator_theoretic_boundedness),
     ]:
         print_header(title)
         res = fn()

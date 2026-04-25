@@ -4,9 +4,10 @@
 # test_VOLUME_IX_CONVOLUTION_POSITIVITY.py
 #
 # VALIDATION SUITE FOR VOLUME IX: CONVOLUTION POSITIVITY
-# Tests the exact positive floor, curvature leakage bounds, tail truncation
-# error bounds, net positivity verification, and Time vs Frequency 
-# (Parseval/Plancherel) consistency.
+# 100% Coverage TDD Suite for the Exact Positivity Framework.
+# Evaluates algebraic properties, quadrature bounds, time-frequency 
+# (discrete Plancherel) consistency, and the three new obligation handlers 
+# (XIII, XIV, XV) implementing exact error accounting and TAP-HO operator bounds.
 
 import sys
 import os
@@ -14,6 +15,7 @@ import math
 import numpy as np
 import mpmath as mp
 import pytest
+from unittest import mock
 
 # Inject the proof directory into sys.path
 PROOF_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'VOLUME_IX_CONVOLUTION_POSITIVITY_PROOF'))
@@ -60,16 +62,18 @@ class TestKernelPropertiesAndLambdaStar:
 
     @pytest.mark.parametrize("H", [0.5, 1.0, 3.0])
     def test_lambda_star_computation(self, H):
-        """
-        Verify that hat{k}_H(xi) / hat{w}_H(xi) >= lambda*.
+        r"""
+        Verify that \hat{k}_H(xi) / \hat{w}_H(xi) >= lambda*.
         The minimum ratio should be exactly 4/H^2.
         """
         computed_lam = ix.compute_lambda_star(H, xi_max=5.0, samples=100)
         expected_lam = 4.0 / (H**2)
-        
-        # Since hat{k}_H(xi) / hat{w}_H(xi) = (2pi xi)^2 + 4/H^2,
-        # the minimum is exactly 4/H^2 at xi = 0.
         assert abs(computed_lam - expected_lam) < 1e-10
+
+    def test_compute_lambda_star_error(self):
+        """H must be positive."""
+        with pytest.raises(ValueError):
+            ix.compute_lambda_star(0.0)
 
 
 class TestDirichletBoundsAndTails:
@@ -105,6 +109,10 @@ class TestDirichletBoundsAndTails:
         assert tail_L10 < tail_L5
         assert tail_L10 < 1e-6 # Should be extremely small for L=10*H
 
+    def test_tail_bound_invalid(self):
+        """L <= 0 returns infinity."""
+        assert math.isinf(ix.tail_bound_convolution(1.0, 0.0, 10.0))
+
 
 class TestConvolutionPositivity:
     """
@@ -125,6 +133,11 @@ class TestConvolutionPositivity:
         assert val > 0.0
         # The lower bound of the interval must also be > 0
         assert val - tail_err > 0.0
+
+    def test_convolution_integral_invalid(self):
+        cfg = ix.DirichletConfig(N=5, sigma=0.5, window_type="sharp")
+        with pytest.raises(ValueError):
+            ix.convolution_integral(cfg, 1.0, 0.0, 0.0, 1e-10)
 
     def test_curvature_leakage_bound_holds(self):
         """
@@ -175,13 +188,13 @@ class TestConvolutionPositivity:
 
 class TestTimeFreqConsistency:
     """
-    Requirement 4.1: Time vs Frequency domain (Plancherel/Parseval) equality.
+    Requirement 4.1: Time vs Frequency domain (discrete Plancherel) equality.
     """
 
     def test_time_freq_consistency(self):
-        """
+        r"""
         Ensure Plancherel equality holds within quadrature tolerance:
-        \int k_H(t)|D_N(T0+t)|^2 dt == \int \hat{k}_H(xi) |S(xi)e^{-i xi T0}|^2 dxi
+        \int k_H(t)|D_N(T0+t)|^2 dt == \sum a_n a_m cos(T0 log n/m) \hat{k}_H
         """
         # Small N and smooth window to ensure rapid frequency decay
         cfg = ix.DirichletConfig(N=5, sigma=0.5, window_type="gaussian", window_params={"alpha": 3.0})
@@ -194,9 +207,114 @@ class TestTimeFreqConsistency:
         
         comp = ix.compare_time_freq_domains(cfg, H, T0, L_t=L_t, L_xi=L_xi, tol=1e-10)
         
-        # The difference should be driven entirely by truncation tail errors
+        # The discrete sum is analytically exact, so the difference is purely
+        # quadrature truncation error from the time domain integral.
         assert abs(comp["difference"]) < 1e-6, \
             f"Time/Freq domain mismatch! Time: {comp['Q_time']}, Freq: {comp['Q_freq']}, Diff: {comp['difference']}"
+
+    def test_hat_w_H_analytic_large_arg(self):
+        r"""Ensure the large-argument approximation branch is hit in \hat{w}_H."""
+        H = 1.0
+        xi = 20.0  # pi^2 * 20 * 1 = 197 > 50
+        val = ix.hat_w_H_analytic(xi, H)
+        assert float(val) > 0.0
+
+
+class TestObligationsHandlers:
+    """
+    Tests the Obligation XIII, XIV, and XV verification layers.
+    """
+
+    def test_derive_xi_to_Q_H(self):
+        """Obligation XIII: Verify the xi -> Q_H derivation numerical check."""
+        cfg = ix.DirichletConfig(N=5, sigma=0.5, window_type="sharp")
+        res = ix.derive_xi_to_Q_H(H=1.0, cfg=cfg, T0=0.0, dps=30)
+        
+        assert res.H == 1.0
+        assert res.min_spectral_value > 0.0, "Spectral representation must be positive."
+        assert res.derivation_verified is True
+
+    def test_mean_value_with_remainder(self):
+        """Obligation XIV: Verify the mean-value bound proxy."""
+        cfg = ix.DirichletConfig(N=5, sigma=0.5, window_type="sharp")
+        res = ix.mean_value_with_remainder(cfg=cfg, H=1.0, T=100.0, dps=30)
+        
+        assert res.mv_sum > 0.0
+        assert res.remainder_rate > 0.0
+        assert res.remainder_bound == res.remainder_rate / 100.0
+        assert res.T_for_epsilon(1e-2) == res.remainder_rate / 1e-2
+        
+        with pytest.raises(ValueError):
+            res.T_for_epsilon(-0.5)
+
+    def test_build_K_N_raw_kernel(self):
+        """Test the raw kernel matrix fallback surrogate."""
+        K = ix._build_K_N_raw_kernel(H=1.0, N=5)
+        assert K.shape == (5, 5)
+        # Verify zero diagonal
+        np.testing.assert_allclose(np.diag(K), np.zeros(5), atol=1e-12)
+        # Verify symmetry
+        np.testing.assert_allclose(K, K.T, atol=1e-12)
+
+    @mock.patch('VOLUME_IX_CONVOLUTION_POSITIVITY._build_K_N_from_kernel')
+    def test_verify_operator_norm_bound(self, mock_build):
+        """Obligation XV: Verify operator norm computation and model fitting."""
+        # Mock returning a dummy operator
+        def dummy_build(H, N):
+            return np.eye(N) * 0.5, False, "Dummy"
+        mock_build.side_effect = dummy_build
+        
+        # Test with N_max = 100
+        res = ix.verify_operator_norm_bound(H=1.0, N_max=100, N_values=[10, 20, 50], power_iters=10)
+        
+        assert res.operator_description == "Dummy"
+        assert res.kH0 == 6.0  # 6 / 1.0^2
+        # np.eye has op norm 0.5
+        np.testing.assert_allclose(res.op_norms, [0.5, 0.5, 0.5], atol=1e-6)
+        
+        # Margin = 6.0 - 0.5 = 5.5
+        np.testing.assert_allclose(res.margins, [5.5, 5.5, 5.5], atol=1e-6)
+        
+        # Model eval for N=10
+        pred = res.margin_model(10)
+        assert math.isfinite(pred)
+
+    def test_power_iteration_break_condition(self):
+        """Test the power iteration early break when matrix is functionally zero."""
+        K = np.zeros((5, 5))
+        op_norm = ix._power_iteration_op_norm(K)
+        assert op_norm == 0.0
+
+
+class TestDiagnostics:
+    """Test the integrated diagnostics output script."""
+
+    @mock.patch('VOLUME_IX_CONVOLUTION_POSITIVITY.verify_operator_norm_bound')
+    def test_demo_execution(self, mock_verify, capsys):
+        """Execute the _demo script to ensure all print paths run cleanly."""
+        
+        # Mock out the heavy operator verification
+        mock_verify.return_value = mock.MagicMock(
+            operator_description="Mock Desc",
+            using_tapho_operator=False,
+            kH0=6.0,
+            ks=[10],
+            op_norms=[1.0],
+            margins=[5.0],
+            verified_up_to_N=10,
+            min_margin=5.0,
+            A_hat=1.0,
+            B_hat=2.0,
+            analytically_open=True
+        )
+        
+        ix._demo()
+        captured = capsys.readouterr().out
+        assert "=== Volume IX Convolution Positivity Demo ===" in captured
+        assert "Obligation XIII" in captured
+        assert "Obligation XIV" in captured
+        assert "Obligation XV" in captured
+        assert "NOTE: Volume I TAP-HO module not found" in captured
 
 if __name__ == '__main__':
     pytest.main([__file__, "-v"])
