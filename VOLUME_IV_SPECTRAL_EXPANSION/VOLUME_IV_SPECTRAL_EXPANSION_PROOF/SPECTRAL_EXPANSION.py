@@ -45,24 +45,26 @@ import numpy as np
 import mpmath as mp
 
 # ---------------------------------------------------------------------------
-# Import Volume III module (QuadraticFormDecomposition) via repo root
+# Import Volume III (Quadratic Form Decomposition) via repo root
 # ---------------------------------------------------------------------------
 
 THIS_DIR = os.path.dirname(__file__)
 REPO_ROOT = os.path.abspath(os.path.join(THIS_DIR, os.pardir, os.pardir))
 
+# Route Volume IV’s “quadratic form decomposition” dependency
+# through the existing Volume III module, rather than a separate
+# QuadraticFormDecomposition package.
 QF_PROOF_DIR = os.path.join(
     REPO_ROOT,
-    "QuadraticFormDecomposition",
-    "QuadraticFormDecompositionProof",
+    "VOLUME_III_QUAD_DECOMPOSITION",
+    "VOLUME_III_QUAD_DECOMPOSITION_PROOF",
 )
+if QF_PROOF_DIR not in sys.path:
+    sys.path.insert(0, QF_PROOF_DIR)
 
-sys.path.insert(0, QF_PROOF_DIR)
-
-import QuadraticFormDecomposition as qf  # noqa: E402
+import VOLUME_III_QUAD_DECOMPOSITION as qf  # noqa: E402
 
 mp.mp.dps = 80
-
 
 # ---------------------------------------------------------------------------
 # 1. Analytic Fourier symbol: k_hat(xi, H)
@@ -96,13 +98,12 @@ def k_hat(xi: float | mp.mpf, H: float | mp.mpf) -> mp.mpf:
 
     if arg > 50:
         exp_term = mp.e ** (-arg)
-        w_hat = mp.pi * H * (2 * mp.pi * a * H) * 2 * exp_term
+        w_hat_val = mp.pi * H * (2 * mp.pi * a * H) * 2 * exp_term
     else:
-        w_hat = mp.pi * H * (2 * mp.pi * a * H) / mp.sinh(arg)
+        w_hat_val = mp.pi * H * (2 * mp.pi * a * H) / mp.sinh(arg)
 
-    val = num * w_hat
+    val = num * w_hat_val
     return val if val >= 0 else mp.mpf("0")
-
 
 # ---------------------------------------------------------------------------
 # 2. Dirichlet wave S(xi) and σ-perturbed variants
@@ -127,7 +128,6 @@ def S_xi(xi: float | mp.mpf, N: int, sigma: float = 0.5) -> complex:
         s += amp * mp.e ** phase
 
     return complex(s)
-
 
 # ---------------------------------------------------------------------------
 # 3. Spectral quadratic form Q_H^spec and Parseval bridge
@@ -159,7 +159,6 @@ def Q_spectral(
 
     return mp.quad(integrand, [-L, L])
 
-
 @dataclass
 class ParsevalComparison:
     N: int
@@ -171,7 +170,6 @@ class ParsevalComparison:
     abs_diff: float
     rel_diff: float
 
-
 def Q_matrix_from_volume_iii(N: int, H: float, T0: float) -> float:
     """
     Use Volume III machinery to obtain the time/matrix-domain quadratic form:
@@ -181,7 +179,6 @@ def Q_matrix_from_volume_iii(N: int, H: float, T0: float) -> float:
     cfg = qf.QuadraticFormConfig(N=N, H=H, T0=T0)
     mats, diag = qf.analyse_growth(cfg)
     return float(diag.Q_H)
-
 
 def compare_parseval(
     N: int,
@@ -210,7 +207,6 @@ def compare_parseval(
         abs_diff=abs_diff,
         rel_diff=rel_diff,
     )
-
 
 # ---------------------------------------------------------------------------
 # 4. Algebraic σ-selector Q_N(σ) (T1 layer from the paper)
@@ -241,7 +237,6 @@ def Q_N_sigma(N: int, sigma: float) -> mp.mpf:
         total += (g ** 2) * (ln_n ** 2)
     return total
 
-
 # ---------------------------------------------------------------------------
 # 5. Spectral σ-selection: direct antisymmetric selector + decomposition
 # ---------------------------------------------------------------------------
@@ -252,7 +247,6 @@ class SigmaDecompositionPoint:
     Q_total: float       # Q_H^spec(σ)
     Q_sym: float | None  # optional σ-symmetric baseline
     Q_selector: float    # selector (either symmetric-diff or direct)
-
 
 def Q_selector_direct(
     N: int,
@@ -282,7 +276,6 @@ def Q_selector_direct(
 
     return mp.mpf("0.5") * mp.quad(integrand, [-L, L])
 
-
 def spectral_sigma_decomposition_direct(
     N: int,
     H: float,
@@ -311,7 +304,6 @@ def spectral_sigma_decomposition_direct(
         )
     return pts
 
-
 # ---------------------------------------------------------------------------
 # 6. σ-profile API (emergent symmetric profile used by tests)
 # ---------------------------------------------------------------------------
@@ -320,7 +312,6 @@ def spectral_sigma_decomposition_direct(
 class SigmaProfilePoint:
     sigma: float
     Q_spectral: float
-
 
 def sigma_profile(
     N: int,
@@ -365,7 +356,6 @@ def sigma_profile(
 
     return pts
 
-
 def sigma_profile_raw(
     N: int,
     H: float,
@@ -382,7 +372,6 @@ def sigma_profile_raw(
         pts.append(SigmaProfilePoint(sigma=s, Q_spectral=q))
     return pts
 
-
 # ---------------------------------------------------------------------------
 # 7. Diagonal vs off-diagonal in spectral domain
 # ---------------------------------------------------------------------------
@@ -395,7 +384,6 @@ def S_diag(N: int, sigma: float = 0.5) -> mp.mpf:
     """
     sigma_mp = mp.mpf(sigma)
     return mp.nsum(lambda n: mp.power(n, -2 * sigma_mp), [1, N])
-
 
 def S_off_from_S(
     S_val: complex,
@@ -411,7 +399,6 @@ def S_off_from_S(
     Sdiag = float(S_diag(N, sigma=sigma))
     return (abs(S_val) ** 2) - Sdiag
 
-
 @dataclass
 class SpectralSplit:
     N: int
@@ -421,7 +408,6 @@ class SpectralSplit:
     Q_diag: float
     Q_off: float
     ratio_diag_off: float
-
 
 def spectral_diag_off_split(
     N: int,
@@ -469,7 +455,6 @@ def spectral_diag_off_split(
         ratio_diag_off=ratio,
     )
 
-
 # ---------------------------------------------------------------------------
 # 8. Frequency decay diagnostics for k_hat
 # ---------------------------------------------------------------------------
@@ -479,7 +464,6 @@ class DecaySample:
     xi: float
     k_abs: float
     log_k_abs: float
-
 
 def decay_samples(H: float, xis: List[float]) -> List[DecaySample]:
     """
@@ -494,13 +478,11 @@ def decay_samples(H: float, xis: List[float]) -> List[DecaySample]:
         pts.append(DecaySample(xi=xi, k_abs=k_abs, log_k_abs=log_k))
     return pts
 
-
 @dataclass
 class DecayFit:
     H: float
     slope: float
     intercept: float
-
 
 def fit_exponential_decay(H: float, xis: List[float]) -> DecayFit:
     """
@@ -534,7 +516,6 @@ def fit_exponential_decay(H: float, xis: List[float]) -> DecayFit:
 
     return DecayFit(H=H, slope=-slope, intercept=intercept)
 
-
 # ---------------------------------------------------------------------------
 # 9. Localization and T0-stability
 # ---------------------------------------------------------------------------
@@ -543,7 +524,6 @@ def fit_exponential_decay(H: float, xis: List[float]) -> DecayFit:
 class LocalizationSample:
     xi: float
     weight: float
-
 
 def localization_profile(
     N: int,
@@ -567,12 +547,10 @@ def localization_profile(
         samples.append(LocalizationSample(xi=xi, weight=w))
     return samples
 
-
 @dataclass
 class T0ScanSample:
     T0: float
     Q_spectral: float
-
 
 def T0_scan(
     N: int,
@@ -589,7 +567,6 @@ def T0_scan(
         Qspec = float(Q_spectral(N=N, H=H, T0=T0, L=L, sigma=sigma))
         pts.append(T0ScanSample(T0=T0, Q_spectral=Qspec))
     return pts
-
 
 # ---------------------------------------------------------------------------
 # 10. Normalized spectral functionals and final selector
@@ -613,7 +590,6 @@ def Q_spectral_normalized(
     Sdiag_val = float(S_diag(N, sigma=sigma))
     return Q_spec_val / (Sdiag_val + 1e-30)
 
-
 def Q_final_selector(
     N: int,
     H: float,
@@ -631,7 +607,6 @@ def Q_final_selector(
     q_sel = float(Q_selector_direct(N=N, H=H, T0=T0, sigma=sigma, L=L))
     Sdiag_val = float(S_diag(N, sigma=sigma))
     return q_sel / (Sdiag_val + 1e-30)
-
 
 # ---------------------------------------------------------------------------
 # 11. Diagnostic scans for selectors and profiles
@@ -655,7 +630,6 @@ def scan_sigma_selector_direct(N: int, H: float, T0: float, L: float = 10.0) -> 
             sign = 0
 
         print(f"σ={s:.4f}, Q_sel_direct={q:.6e}, sign={sign}")
-
 
 def sigma_profile_normalized(
     N: int,
@@ -691,7 +665,6 @@ def sigma_profile_normalized(
 
     return values
 
-
 def scan_final_selector(N: int, H: float, T0: float, L: float = 10.0) -> None:
     """
     Scan final normalized selector Q_final over σ ∈ [0.3, 0.7].
@@ -710,7 +683,6 @@ def scan_final_selector(N: int, H: float, T0: float, L: float = 10.0) -> None:
             sign = 0
 
         print(f"σ={s:.4f}, Q_final={q:.6e}, sign={sign}")
-
 
 # ---------------------------------------------------------------------------
 # 12. High-level Volume IV driver
@@ -811,7 +783,6 @@ def run_volume_iv_suite() -> None:
     for s in scan:
         print(f"T0={s.T0:4.1f}, Q_spec={s.Q_spectral:.6e}")
     print()
-
 
 if __name__ == "__main__":
     run_volume_iv_suite()

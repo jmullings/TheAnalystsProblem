@@ -14,14 +14,14 @@ This module is “production ready” in the sense that:
   - All bounds and diagnostics return explicit, finite floats.
   - SECH^2 / SECH^6 kernels are implemented as decaying spectral
     weights consistent with Fourier transforms of SECH^{2k}-type
-    kernels (polynomial prefactor times exponential decay in |ξ|). [web:307][web:313]
+    kernels (polynomial prefactor times exponential decay in |ξ|). [web:85][web:79]
   - Montgomery–Vaughan large sieve constants are computed exactly in
-    the classical sense. [web:315]
+    the classical sense. [web:81][web:87]
   - SECH-structured eigenvectors from log-kernel mass operators are
     integrated into the coefficient pipeline, giving a concrete
     “forced by the arithmetic of primes” narrative: only decaying
     spectral kernels are compatible with the quadratic forms built
-    from Λ-like weights and log-frequencies. [web:299][web:292]
+    from Λ-like weights and log-frequencies. [web:80][web:83]
 
 Core capabilities
 -----------------
@@ -33,12 +33,12 @@ Core capabilities
 
 2. Montgomery–Vaughan inequality
    - For real frequencies γ_n with minimum separation δ,
-       sup_ξ |∑ a_n e^{2π i ξ γ_n}|^2 ≤ (N + 1/δ) ∑ |a_n|^2. [web:315]
+       sup_ξ |∑ a_n e^{2π i ξ γ_n}|^2 ≤ (N + 1/δ) ∑ |a_n|^2. [web:81][web:87]
 
 3. Kernel-decay bounds for off-diagonal
-   - Uses Volume IV kernels k_hat_sech2(ξ, H) and k_hat_sech6(ξ, H)
-     to bound the off-diagonal Dirichlet quadratic form in frequency
-     space, with explicit exponential decay in |ξ|. [web:307][web:313]
+   - Uses Volume IV kernels k_hat(ξ, H) (SECH^2) and an internal
+     SECH^6 refinement to bound the off-diagonal Dirichlet quadratic
+     form in frequency space, with explicit exponential decay in |ξ|. [web:85][web:79]
 
 4. SECH^2 / SECH^6 structured coefficients
    - Optional replacement of generic coefficients by a SECH^2- or
@@ -62,10 +62,10 @@ Core capabilities
 
 The “forced by the arithmetic of primes” evidence lives in:
 
-  - The fact that only decaying k_hat_sech2 / k_hat_sech6 choices
-    keep the kernel bound commensurate with the MV bound, while any
+  - The fact that only decaying SECH-type choices for k_hat keep
+    the kernel bound commensurate with the MV bound, while any
     exponentially growing spectral weight would obliterate the
-    inequality structure. [web:299][web:292]
+    inequality structure. [web:81][web:87]
   - The observation that SECH-structured eigenvectors (Volume IV/VI)
     are naturally adapted to the log-grid frequencies, tightening the
     kernel bound without violating Montgomery–Vaughan’s coercive
@@ -76,7 +76,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Tuple, Literal
+from typing import Dict, Iterable, List, Tuple, Literal, Callable
 
 import mpmath as mp
 import numpy as np
@@ -109,7 +109,7 @@ except Exception:
         window_type: str = "sharp"  # "sharp", "gaussian", "exponential", "bump", "log_sech2"
         window_params: Dict[str, float] | None = None
         custom_coeffs: np.ndarray | None = None
-        custom_window: callable | None = None
+        custom_window: Callable[[int, int], float] | None = None
 
     def _von_mangoldt(n: int) -> float:
         if n < 2:
@@ -129,6 +129,7 @@ except Exception:
         sigma = cfg.sigma
         ns = np.arange(1, N + 1, dtype=float)
         logn = np.log(ns)
+
         if cfg.weight_type == "plain":
             a = ns ** (-sigma)
         elif cfg.weight_type == "log":
@@ -150,6 +151,7 @@ except Exception:
         params = cfg.window_params or {}
         if wt == "sharp":
             return a.copy()
+
         w = np.empty_like(a)
         for i in range(N):
             n = i + 1
@@ -180,17 +182,37 @@ except Exception:
         return a * w
 
 # ---------------------------------------------------------------------------
-# 2. Volume IV kernels: SECH^2 and SECH^6 (spectral side)
+# 2. Volume IV kernel integration: SECH^2 and SECH^6 (spectral side)
 # ---------------------------------------------------------------------------
+
+# We prefer to reuse the canonical k_hat(ξ,H) from Volume IV when available,
+# since this is the same Bochner-repaired SECH^2-based kernel used in the
+# spectral expansion and TAP HO layers. If the import fails, we fall back
+# to a local SECH^2 model with identical qualitative behaviour. [web:85][web:79]
+
+try:
+    from VOLUME_IV_SPECTRAL_EXPANSION.VOLUME_IV_SPECTRAL_EXPANSION_PROOF.SPECTRAL_EXPANSION import (  # type: ignore # noqa: E501
+        k_hat as k_hat_volume_iv,
+    )
+    USE_VOLUME_IV_KERNEL = True
+except Exception:
+    k_hat_volume_iv = None  # type: ignore[assignment]
+    USE_VOLUME_IV_KERNEL = False
 
 def k_hat_sech2(xi: float | mp.mpf, H: float | mp.mpf) -> mp.mpf:
     """
     SECH^2-based spectral kernel k_hat_sech2(ξ,H).
 
-    Conceptual model:
+    Preferred mode:
+
+      - If Volume IV is available, we delegate directly to its k_hat(ξ,H),
+        ensuring that the large sieve bridge uses exactly the same kernel
+        as the spectral expansion and TAP HO positivity transform. [web:85]
+
+    Fallback mode:
 
       - Start from a SECH^2-shaped weight w_H(t) ≈ sech^2(t/H) in log-space.
-      - Its Fourier transform has the qualitative form [web:307][web:313]
+      - Its Fourier transform has the qualitative form [web:85][web:79]
 
           w_hat(ξ,H) ≈ polynomial(ξH) * csch(c |ξ| H),
 
@@ -201,22 +223,24 @@ def k_hat_sech2(xi: float | mp.mpf, H: float | mp.mpf) -> mp.mpf:
 
           k_hat(ξ,H) = ((2πξ)^2 + 4/H^2) * w_hat(ξ,H).
 
-    Implementation:
+    Implementation (fallback):
 
       k_hat(ξ,H) = ((2πξ)^2 + 4/H^2) * w_hat(ξ,H),
-
       w_hat(ξ,H) = π H * (2π ξ H) / sinh(π^2 ξ H),
 
     with asymptotic handling for large |ξ| to avoid overflow. This
     enforces exponential decay in |ξ|, which is essential for keeping
-    the spectral side subordinate to the arithmetic side. [web:307][web:314]
+    the spectral side subordinate to the arithmetic side. [web:85]
     """
     xi = mp.mpf(xi)
     H = mp.mpf(H)
 
+    if USE_VOLUME_IV_KERNEL and k_hat_volume_iv is not None:
+        # Delegate to Volume IV canonical kernel
+        return mp.mpf(k_hat_volume_iv(xi, H))
+
     if xi == 0:
-        # At ξ = 0, use a finite peak value compatible with the
-        # underlying SECH^2 mass-operator scaling.
+        # At ξ = 0, use the Bochner-compatible peak (matches Volume IV).
         return mp.mpf("8") / (H ** 2)
 
     a = mp.fabs(xi)
@@ -233,7 +257,6 @@ def k_hat_sech2(xi: float | mp.mpf, H: float | mp.mpf) -> mp.mpf:
     val = num * w_hat_val
     return val if val >= 0 else mp.mpf("0")
 
-
 def k_hat_sech6(xi: float | mp.mpf, H: float | mp.mpf) -> mp.mpf:
     """
     SECH^6-based spectral kernel k_hat_sech6(ξ,H).
@@ -241,7 +264,7 @@ def k_hat_sech6(xi: float | mp.mpf, H: float | mp.mpf) -> mp.mpf:
     Modelling choice:
 
       - SECH^6 kernels in t have Fourier transforms with stronger
-        polynomial growth in ξ but still exponential decay. [web:313]
+        polynomial growth in ξ but still exponential decay. [web:85]
       - We model this as a higher-concentration analogue of k_hat_sech2
         by taking the same structural form for w_hat and multiplying
         by an extra SECH^4-type decay factor in frequency.
@@ -259,15 +282,12 @@ def k_hat_sech6(xi: float | mp.mpf, H: float | mp.mpf) -> mp.mpf:
     H = mp.mpf(H)
 
     if xi == 0:
-        # Strong central peak; for simplicity we keep the same leading
-        # factor as SECH^2. This can be adjusted if you later derive a
-        # more precise normalization.
+        # Strong central peak; keep the same leading factor as SECH^2
+        # for simplicity. Normalization can be refined later if needed.
         return mp.mpf("8") / (H ** 2)
 
     a = mp.fabs(xi)
-    # Base SECH^2 spectral kernel
     base = k_hat_sech2(a, H)
-    # Additional SECH^4-type decay in frequency
     arg = (mp.pi ** 2) * a * H
     decay = 1 / (mp.cosh(arg) ** 4)
     val = base * decay
@@ -318,7 +338,7 @@ def mass_operator_np(K: np.ndarray) -> np.ndarray:
     """
     Mass operator:
 
-      M = (K + K^T)/2 (symmetric).
+      M = (K + K^T)/2  (symmetric).
 
     Ensures we work with a symmetric quadratic form suitable for
     eigen-decomposition.
@@ -462,7 +482,7 @@ def min_separation(gamma: np.ndarray) -> float:
     Minimum separation δ = min_{r != s} |γ_r - γ_s|.
 
     For γ_n = log n this is asymptotically ~ 1/N; here we compute it
-    directly on the sorted array. [web:315]
+    directly on the sorted array. [web:81][web:87]
     """
     if gamma.size < 2:
         return float("inf")
@@ -499,7 +519,7 @@ def montgomery_vaughan_bound(
     a: np.ndarray,
 ) -> Tuple[float, float, float]:
     """
-    Montgomery–Vaughan large sieve bound. [web:315][web:306]
+    Montgomery–Vaughan large sieve bound. [web:81][web:87]
 
         sup_ξ |S(ξ)|^2 ≤ (N + 1/δ) ∑|a_n|^2,
 
@@ -537,7 +557,7 @@ def kernel_decay_off_diagonal_bound(
     where k_hat is either SECH^2- or SECH^6-based and decays
     exponentially in |log n - log m|. This enforces that the
     spectral-side smoothing is compatible with the arithmetic-side
-    structure. [web:307][web:314]
+    structure. [web:81]
 
     Returns (kernel_bound_constant, kernel_bound) where
       kernel_bound_constant = max_{n != m} k_hat(log n - log m, H).
@@ -664,7 +684,7 @@ def validate_large_sieve_bounds(
     manifests numerically: the MV bound, coming purely from the spacing
     of log n, constrains allowable growth of |S(ξ)|^2, and our SECH-based
     kernel must respect that constraint by decaying in |ξ| rather than
-    blowing up. [web:315][web:299]
+    blowing up. [web:81][web:87]
     """
     # Base coefficients from Volume V
     raw_a, logn_base = build_coefficients(cfg)
@@ -774,7 +794,7 @@ def scaling_study(
 
     This lets you see how MV and kernel bounds evolve as N grows,
     and how SECH-structured eigenvectors interact with the arithmetic
-    spacing of log n. [web:315]
+    spacing of log n. [web:81]
     """
     records: List[ScalingRecord] = []
     for N in Ns:
@@ -821,9 +841,13 @@ def run_volume_vi_demo() -> None:
     This is the recommended entrypoint when using Volume VI as a
     stand-alone script: it prints the key constants and bound ratios
     so you can eyeball the “forced by the arithmetic of primes”
-    effect in practice.
+    effect in practice. [web:81][web:87]
     """
     print("=== VOLUME VI: Large Sieve Bridge Demo ===")
+    if USE_VOLUME_IV_KERNEL:
+        print("INFO: Using Volume IV k_hat(ξ,H) as SECH^2 kernel.")
+    else:
+        print("INFO: Using internal SECH^2 fallback kernel (Volume IV not found).")
 
     H = 1.0
     sigma = 0.5

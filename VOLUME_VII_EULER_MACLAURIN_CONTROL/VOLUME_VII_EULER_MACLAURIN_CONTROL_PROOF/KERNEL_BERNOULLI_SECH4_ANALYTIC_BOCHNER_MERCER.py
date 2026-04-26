@@ -18,13 +18,33 @@
 #
 # NOTE: This is numerical certification, not a formal analytic proof.
 
-import numpy as np
+from __future__ import annotations
+
 import math
+import os
+import sys
+from typing import Tuple
+
+import numpy as np
+
+# ---------------------------------------------------------------------
+# 0. Project-root path setup (align with QED_HILBERT_POLYA_RH_PROOF.py)
+# ---------------------------------------------------------------------
+
+THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(THIS_DIR, "..", ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+# (Optional) You can import shared utilities here if you later create them, e.g.:
+# from VOLUME_II_KERNAL_DECOMPOSITION.VOLUME_II_KERNAL_DECOMPOSITION_PROOF.KERNAL_DECOMPOSITION_PROBLEM import k_H as vol2_k_H
+# For now this script is self-contained and only depends on NumPy.
 
 
 # ---------------------------------------------------------------------
 # 1. Kernel definition
 # ---------------------------------------------------------------------
+
 
 def k_H(t: np.ndarray | float, H: float = 1.0) -> np.ndarray:
     """
@@ -37,7 +57,7 @@ def k_H(t: np.ndarray | float, H: float = 1.0) -> np.ndarray:
     z = np.abs(t_arr / H)
     # Clip to avoid overflow in cosh for large |t/H|
     z_clip = np.clip(z, 0.0, 40.0)  # cosh(40) ~ 1e17, safe in float64
-    val = (6.0 / (H**2)) * (1.0 / np.cosh(z_clip))**4
+    val = (6.0 / (H**2)) * (1.0 / np.cosh(z_clip)) ** 4
     # For very large |t|, kernel is effectively zero
     val[z > 40.0] = 0.0
     return val
@@ -47,11 +67,14 @@ def k_H(t: np.ndarray | float, H: float = 1.0) -> np.ndarray:
 # 2. Numerical Fourier transform (Bochner spectral check)
 # ---------------------------------------------------------------------
 
-def fourier_sech4_numeric(omega: np.ndarray | float,
-                          H: float = 1.0,
-                          T_max_factor: float = 50.0,
-                          n_grid: int = 20000) -> np.ndarray:
-    """
+
+def fourier_sech4_numeric(
+    omega: np.ndarray | float,
+    H: float = 1.0,
+    T_max_factor: float = 50.0,
+    n_grid: int = 20000,
+) -> np.ndarray:
+    r"""
     Numerical Fourier transform of k_H:
 
         \hat{k}_H(ω) = ∫_{R} k_H(t) e^{-2π i ω t} dt.
@@ -62,17 +85,6 @@ def fourier_sech4_numeric(omega: np.ndarray | float,
 
     but in practice we integrate over a large symmetric truncation
     [-T_max, T_max] with fine grid.
-
-    Parameters
-    ----------
-    omega : array_like
-        Frequencies at which to evaluate the transform.
-    H : float
-        Kernel bandwidth parameter.
-    T_max_factor : float
-        Truncation factor; T_max = T_max_factor * H.
-    n_grid : int
-        Number of grid points for trapezoidal integration.
     """
     omega_arr = np.asarray(omega, dtype=float)
     T_max = T_max_factor * H
@@ -91,7 +103,15 @@ def fourier_sech4_numeric(omega: np.ndarray | float,
     return np.array(results, dtype=float)
 
 
-def certify_bochner(H: float = 1.0):
+def certify_bochner(H: float = 1.0) -> Tuple[float, float, float, float]:
+    """
+    Run Bochner-style checks:
+      - numeric Fourier transform sampled on a frequency grid
+      - random Gram-matrix PSD test on R
+
+    Returns:
+      (min_hat_k, max_hat_k, min_eig_gram, max_eig_gram)
+    """
     print("==============================================")
     print(" BOCHNER NUMERICAL CERTIFICATION")
     print(" k_H(t) = (6/H^2) sech^4(t/H)")
@@ -99,9 +119,11 @@ def certify_bochner(H: float = 1.0):
 
     # 2.1 Spectral check: numerical Fourier transform
     omegas = np.linspace(-10.0, 10.0, 401)  # moderate band; kernel is localized
-    print("Computing numerical Fourier transform on ω ∈ [{:.1f}, {:.1f}] ...".format(
-        omegas[0], omegas[-1]
-    ))
+    print(
+        "Computing numerical Fourier transform on ω ∈ [{:.1f}, {:.1f}] ...".format(
+            omegas[0], omegas[-1]
+        )
+    )
     ft_vals = fourier_sech4_numeric(omegas, H=H, T_max_factor=50.0, n_grid=20000)
 
     min_ft = float(ft_vals.min())
@@ -138,12 +160,29 @@ def certify_bochner(H: float = 1.0):
     else:
         print("Bochner Gram status     : WARNING (negative eigenvalues)\n")
 
+    return min_ft, max_ft, min_eig, max_eig
+
 
 # ---------------------------------------------------------------------
 # 3. Mercer numerical verification on [0, log N]
 # ---------------------------------------------------------------------
 
-def certify_mercer(H: float = 1.0, N_val: float = 100.0, grid_size: int = 200):
+
+def certify_mercer(
+    H: float = 1.0,
+    N_val: float = 100.0,
+    grid_size: int = 200,
+) -> Tuple[float, float, float, float, float]:
+    """
+    Mercer-style certification of k_H on [0, log N]:
+
+      - build integral operator K_ij = k_H(t_i - t_j) * dt
+      - check PSD / trace-class-like behaviour
+      - test Mercer expansion accuracy
+
+    Returns:
+      (min_eig, max_eig, trace_approx, max_err_recon, rel_err_recon)
+    """
     print("==============================================")
     print(" MERCER NUMERICAL CERTIFICATION")
     print(" Domain: [0, log N]")
@@ -184,11 +223,9 @@ def certify_mercer(H: float = 1.0, N_val: float = 100.0, grid_size: int = 200):
     else:
         print("Mercer positivity      : WARNING (negative eigenvalues)\n")
 
-    # Check trace-class-like behavior: eigenvalue decay
-    # (Not rigorously necessary here, but informative.)
-    # Print a few leading eigenvalues:
+    # Check trace-class-like behavior: eigenvalue decay (informative, not rigorous)
     top_k = min(10, grid_size)
-    print("Top eigenvalues (λ_1,...,λ_{}) ≈".format(top_k))
+    print(f"Top eigenvalues (λ_1,...,λ_{top_k}) ≈")
     print("  ", ", ".join(f"{eigvals_sorted[i]:.3e}" for i in range(top_k)))
     print()
 
@@ -215,16 +252,61 @@ def certify_mercer(H: float = 1.0, N_val: float = 100.0, grid_size: int = 200):
     else:
         print("Mercer reconstruction  : WARNING (non-negligible error)\n")
 
+    return min_eig, max_eig, trace_approx, max_err, rel_err
+
 
 # ---------------------------------------------------------------------
-# 4. Main driver
+# 4. Public API for QED / Volumes
 # ---------------------------------------------------------------------
 
-def run_full_certification():
-    H = 1.0
-    certify_bochner(H=H)
-    certify_mercer(H=H, N_val=100.0, grid_size=200)
+
+def run_full_certification(
+    H: float = 1.0,
+    N_val: float = 100.0,
+    grid_size: int = 200,
+) -> dict:
+    """
+    Unified entrypoint so QED_HILBERT_POLYA_RH_PROOF.py or a new Volume
+    can import and call this module programmatically, e.g.:
+
+        from VOLUME_II_KERNAL_DECOMPOSITION.KERNEL_SECH4_BOCHNER_MERCER_CERTIFICATION import (
+            run_full_certification
+        )
+        result = run_full_certification(H=0.5, N_val=100.0, grid_size=200)
+
+    Returns:
+      dict with summary statistics from Bochner and Mercer checks.
+    """
+    min_ft, max_ft, min_eig_gram, max_eig_gram = certify_bochner(H=H)
+    (
+        min_eig_int,
+        max_eig_int,
+        trace_int,
+        max_err_recon,
+        rel_err_recon,
+    ) = certify_mercer(H=H, N_val=N_val, grid_size=grid_size)
+
+    return {
+        "H": H,
+        "N_val": N_val,
+        "grid_size": grid_size,
+        "fourier_min": min_ft,
+        "fourier_max": max_ft,
+        "gram_min_eig": min_eig_gram,
+        "gram_max_eig": max_eig_gram,
+        "integral_min_eig": min_eig_int,
+        "integral_max_eig": max_eig_int,
+        "integral_trace": trace_int,
+        "mercer_max_err": max_err_recon,
+        "mercer_rel_err": rel_err_recon,
+    }
+
+
+# ---------------------------------------------------------------------
+# 5. Script entrypoint
+# ---------------------------------------------------------------------
 
 
 if __name__ == "__main__":
-    run_full_certification()
+    # Default parameters chosen to match other volume test scales
+    run_full_certification(H=1.0, N_val=100.0, grid_size=200)

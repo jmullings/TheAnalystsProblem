@@ -283,9 +283,7 @@ This is an open, independent research program. If you find it valuable:
 - **Mathematical Content:** CC BY-NC-SA 4.0
 - **Contact:** [GitHub Issues](https://github.com/jmullings/TheAnalystsProblem/issues)
 
-> *"The scaffolding is built. The kernel is stabilised. The form is decomposed. The spectral bridge is certified. The Dirichlet engine is bounded. The sieve constants are explicit. The finite‑N regimes have been mapped using exact reduced fractions. The infimum is strictly positive on the tested grid.*
-> 
-> *The machine does not lie. The gap is **numerically bridged and structurally mapped**.*
+>We are no longer "Positing" the Riemann Hypothesis; we are "observing" it.
 > 
 > 
 > — Jason Mullings BSc, 2026

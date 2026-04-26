@@ -44,6 +44,8 @@ for diagnostics.
 from __future__ import annotations
 
 import math
+import os
+import sys
 from dataclasses import dataclass
 from typing import Callable, Dict, Iterable, List, Tuple
 
@@ -51,6 +53,15 @@ import mpmath as mp
 import numpy as np
 
 mp.mp.dps = 80
+
+# ---------------------------------------------------------------------------
+# 0. Project root path (align with QED_HILBERT_POLYA_RH_PROOF.py)
+# ---------------------------------------------------------------------------
+
+THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(THIS_DIR, "..", ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 # ---------------------------------------------------------------------------
 # Optional imports from Volumes V and VI
@@ -62,7 +73,7 @@ try:
 except Exception:  # pragma: no cover
     ls = None  # tests may skip LS-dependent parts
 
-# Volume IV kernel (sech^2-based)
+# Volume IV kernel (sech^2-based) – imported via Volume VI bridge when available
 try:
     from VOLUME_VI_LARGE_SIEVE_BRIDGE import k_hat  # type: ignore
 except Exception:  # pragma: no cover
@@ -175,6 +186,7 @@ except Exception:  # pragma: no cover
 # 1. Continuous integrand and derivatives
 # ---------------------------------------------------------------------------
 
+
 def f_continuous(t: float, params: Dict[str, float]) -> float:
     """
     Continuous analog of Dirichlet coefficients in t = log n.
@@ -215,6 +227,7 @@ def f_continuous(t: float, params: Dict[str, float]) -> float:
 
     return base * w
 
+
 def f_derivative(t: float, order: int, params: Dict[str, float]) -> float:
     """
     Compute the 'order'-th derivative of f(t) at t.
@@ -251,6 +264,7 @@ def f_derivative(t: float, order: int, params: Dict[str, float]) -> float:
 
 _BERNOULLI_CACHE: Dict[int, mp.mpf] = {}
 
+
 def bernoulli_number_float(k: int) -> mp.mpf:
     if k in _BERNOULLI_CACHE:
         return _BERNOULLI_CACHE[k]
@@ -262,10 +276,12 @@ def bernoulli_number_float(k: int) -> mp.mpf:
 # 3. Remainder bound (classical + kernel–enhanced)
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class RemainderBounds:
     classical: float
     kernel_enhanced: float
+
 
 def _kernel_decay_factor(H: float) -> float:
     """
@@ -281,6 +297,7 @@ def _kernel_decay_factor(H: float) -> float:
         return 1.0
     ratio = k1 / k0
     return float(min(1.0, max(0.0, ratio)))
+
 
 def euler_maclaurin_remainder_bound(
     f: Callable[[float], float],
@@ -337,6 +354,7 @@ def euler_maclaurin_remainder_bound(
 # 4. EM result container
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class EulerMaclaurinResult:
     integral: float
@@ -357,6 +375,7 @@ class EulerMaclaurinResult:
 # ---------------------------------------------------------------------------
 # 5. Euler–Maclaurin summation engine on step grid
 # ---------------------------------------------------------------------------
+
 
 def euler_maclaurin_sum(
     f: Callable[[float], float],
@@ -400,7 +419,12 @@ def euler_maclaurin_sum(
         B_2j = bernoulli_number_float(2 * j)
         fka = f_derivative(a, k, local_params)
         fkb = f_derivative(b, k, local_params)
-        term = float(B_2j) * (h ** (2 * j - 1)) * (fkb - fka) / float(math.factorial(2 * j))
+        term = (
+            float(B_2j)
+            * (h ** (2 * j - 1))
+            * (fkb - fka)
+            / float(math.factorial(2 * j))
+        )
         bernoulli_terms.append(term)
 
     S_em = (1.0 / h) * I + endpoint + sum(bernoulli_terms)
@@ -436,6 +460,7 @@ def euler_maclaurin_sum(
 # ---------------------------------------------------------------------------
 # 6. Uniformity over H and T0
 # ---------------------------------------------------------------------------
+
 
 def verify_uniformity_H_T0(
     H_values: Iterable[float],
@@ -476,6 +501,7 @@ def verify_uniformity_H_T0(
 # 7. Helper for Volume V discrete sums
 # ---------------------------------------------------------------------------
 
+
 def discrete_sum_from_volume_v(cfg: DirichletConfig) -> Tuple[np.ndarray, float]:
     raw_a, _ = build_coefficients(cfg)
     a = apply_window(cfg, raw_a)
@@ -484,6 +510,7 @@ def discrete_sum_from_volume_v(cfg: DirichletConfig) -> Tuple[np.ndarray, float]
 # ---------------------------------------------------------------------------
 # 8. Comparison of discrete sum vs EM estimate
 # ---------------------------------------------------------------------------
+
 
 def compare_sum_vs_em(
     f_discrete: np.ndarray,
@@ -537,6 +564,7 @@ def compare_sum_vs_em(
 # ---------------------------------------------------------------------------
 # 9. Diagonal mass EM bound for D_H(N)
 # ---------------------------------------------------------------------------
+
 
 def diagonal_mass_em_bound(
     N: int,
@@ -595,6 +623,7 @@ def diagonal_mass_em_bound(
 # 10. Remainder vs N scaling for D_H(N)
 # ---------------------------------------------------------------------------
 
+
 def remainder_vs_N_scaling(
     N_values: List[int],
     H: float,
@@ -640,6 +669,7 @@ def remainder_vs_N_scaling(
 # 11. Q_H lower-bound contribution (E_EM)
 # ---------------------------------------------------------------------------
 
+
 def QH_lower_bound_contribution(
     N: int,
     H: float,
@@ -675,6 +705,7 @@ def QH_lower_bound_contribution(
 # 12. Demo / sanity check
 # ---------------------------------------------------------------------------
 
+
 def _demo_linear_function() -> None:
     """
     Demo: f(t) = t on [0,1], n_terms=11, EM with m=1.
@@ -705,6 +736,7 @@ def _demo_linear_function() -> None:
     print(f"|R|_kernel    ≤    = {res.remainder_bound_kernel:.3e}")
     print("interval (classical) =", res.error_interval_classical)
     print("interval (kernel)    =", res.error_interval_kernel)
+
 
 if __name__ == "__main__":
     _demo_linear_function()

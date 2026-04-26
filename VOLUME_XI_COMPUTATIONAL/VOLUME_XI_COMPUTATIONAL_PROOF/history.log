@@ -247,3 +247,127 @@ VOLUME XI — RIGOROUS SUITE (NON-RANDOM, NO SKIPS)
   H=0.1, T0=100, N=50, L=0.6 | Q_trunc=4.562585124456e+02, F_floor=4.527118861534e+02, E_tail=4.633296848129e-07, E_quad=1.414732631390e-05, E_spec=4.331468517194e-11, E_num=4.562585124456e-08, E_total=1.465632516464e-05, Q_lower_bound=4.562584977893e+02, spec_status=full_spec_check
 [OK] XI_RigorousSingle::H=0.1,T0=100.0,N=100
   H=0.1, T0=100, N=100, L=0.6 | Q_trunc=5.435436085575e+02, F_floor=5.392008398640e+02, E_tail=5.314850207019e-07, E_quad=1.684999267271e-05, E_spec=5.172751116334e-11, E_num=5.435436085575e-08, E_total=1.743588378178e-05, Q_lower_bound=5.435435911216e+02, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.1,T0=100.0,N=200
+  H=0.1, T0=100, N=200, L=0.6 | Q_trunc=5.702370856652e+02, F_floor=5.656280589343e+02, E_tail=5.535668457270e-07, E_quad=1.767331099549e-05, E_spec=5.422862159321e-11, E_num=5.702370856652e-08, E_total=1.828395577840e-05, Q_lower_bound=5.702370673812e+02, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.1,T0=100.0,N=500
+  H=0.1, T0=100, N=500, L=0.6 | Q_trunc=5.732265201585e+02, F_floor=5.687891439995e+02, E_tail=5.607552971979e-07, E_quad=1.781068187261e-05, E_spec=5.434230843093e-11, E_num=5.732265201585e-08, E_total=1.842881416413e-05, Q_lower_bound=5.732265017297e+02, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.1,T0=100.0,N=1000
+  H=0.1, T0=100, N=1000, L=0.6 | Q_trunc=5.742600568432e+02, F_floor=5.698591661911e+02, E_tail=5.613690475487e-07, E_quad=1.787233962874e-05, E_spec=5.456968210638e-11, E_num=5.742600568432e-08, E_total=1.849118925166e-05, Q_lower_bound=5.742600383520e+02, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.1,T0=-50.0,N=20
+  H=0.1, T0=-50, N=20, L=0.6 | Q_trunc=2.008528851084e+01, F_floor=2.067357205882e+01, E_tail=3.144920550453e-07, E_quad=3.282242423359e-06, E_spec=1.559641304993e-12, E_num=2.008528851084e-09, E_total=3.598744566897e-06, Q_lower_bound=2.008528491209e+01, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.1,T0=-50.0,N=50
+  H=0.1, T0=-50, N=50, L=0.6 | Q_trunc=1.091343382646e+01, F_floor=1.183962927994e+01, E_tail=4.389368479959e-07, E_quad=3.877025180647e-06, E_spec=5.666578317687e-13, E_num=1.091343382646e-09, E_total=4.317053938683e-06, Q_lower_bound=1.091342950940e+01, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.1,T0=-50.0,N=100
+  H=0.1, T0=-50, N=100, L=0.6 | Q_trunc=1.000620444861e+01, F_floor=1.106280968265e+01, E_tail=4.614089621008e-07, E_quad=4.119725216676e-06, E_spec=4.192202140985e-13, E_num=1.000620444861e-09, E_total=4.582135218442e-06, Q_lower_bound=1.000619986648e+01, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.1,T0=-50.0,N=200
+  H=0.1, T0=-50, N=200, L=0.6 | Q_trunc=1.019836353564e+01, F_floor=1.115970557820e+01, E_tail=4.696605416384e-07, E_quad=4.032543673440e-06, E_spec=4.902744876745e-13, E_num=1.019836353564e-09, E_total=4.503224541707e-06, Q_lower_bound=1.019835903242e+01, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.1,T0=-50.0,N=500
+  H=0.1, T0=-50, N=500, L=0.6 | Q_trunc=8.852538063964e+00, F_floor=9.946974289547e+00, E_tail=4.711545191820e-07, E_quad=4.248915790230e-06, E_spec=2.984279490192e-13, E_num=8.852538063964e-10, E_total=4.720955861646e-06, Q_lower_bound=8.852533343008e+00, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.1,T0=-50.0,N=1000
+  H=0.1, T0=-50, N=1000, L=0.6 | Q_trunc=1.167202521519e+01, F_floor=1.258727022600e+01, E_tail=4.711811419635e-07, E_quad=3.928958399849e-06, E_spec=6.465938895417e-13, E_num=1.167202521519e-09, E_total=4.401307390927e-06, Q_lower_bound=1.167202081388e+01, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.1,T0=-100.0,N=20
+  H=0.1, T0=-100, N=20, L=0.6 | Q_trunc=2.180792830412e+02, F_floor=2.170513956227e+02, E_tail=3.241145601524e-07, E_quad=6.783284461707e-06, E_spec=2.040678737103e-11, E_num=2.180792830412e-08, E_total=7.129227356951e-06, Q_lower_bound=2.180792759120e+02, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.1,T0=-100.0,N=50
+  H=0.1, T0=-100, N=50, L=0.6 | Q_trunc=4.562585124456e+02, F_floor=4.527118861534e+02, E_tail=4.633296848129e-07, E_quad=1.414732631390e-05, E_spec=4.331468517194e-11, E_num=4.562585124456e-08, E_total=1.465632516464e-05, Q_lower_bound=4.562584977893e+02, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.1,T0=-100.0,N=100
+  H=0.1, T0=-100, N=100, L=0.6 | Q_trunc=5.435436085575e+02, F_floor=5.392008398640e+02, E_tail=5.314850207019e-07, E_quad=1.684999267271e-05, E_spec=5.172751116334e-11, E_num=5.435436085575e-08, E_total=1.743588378178e-05, Q_lower_bound=5.435435911216e+02, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.1,T0=-100.0,N=200
+  H=0.1, T0=-100, N=200, L=0.6 | Q_trunc=5.702370856652e+02, F_floor=5.656280589343e+02, E_tail=5.535668457270e-07, E_quad=1.767331099549e-05, E_spec=5.422862159321e-11, E_num=5.702370856652e-08, E_total=1.828395577840e-05, Q_lower_bound=5.702370673812e+02, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.1,T0=-100.0,N=500
+  H=0.1, T0=-100, N=500, L=0.6 | Q_trunc=5.732265201585e+02, F_floor=5.687891439995e+02, E_tail=5.607552971979e-07, E_quad=1.781068187261e-05, E_spec=5.434230843093e-11, E_num=5.732265201585e-08, E_total=1.842881416413e-05, Q_lower_bound=5.732265017297e+02, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.1,T0=-100.0,N=1000
+  H=0.1, T0=-100, N=1000, L=0.6 | Q_trunc=5.742600568432e+02, F_floor=5.698591661911e+02, E_tail=5.613690475487e-07, E_quad=1.787233962874e-05, E_spec=5.456968210638e-11, E_num=5.742600568432e-08, E_total=1.849118925166e-05, Q_lower_bound=5.742600383520e+02, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.25,T0=0.0,N=20
+  H=0.25, T0=0, N=20, L=1.5 | Q_trunc=6.889009015043e+02, F_floor=6.740232369594e+02, E_tail=1.992369296739e-07, E_quad=1.342447010069e-04, E_spec=0.000000000000e+00, E_num=6.889009015043e-08, E_total=1.345128280267e-04, Q_lower_bound=6.889007669914e+02, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.25,T0=0.0,N=50
+  H=0.25, T0=0, N=50, L=1.5 | Q_trunc=2.120457307045e+03, F_floor=2.051932897972e+03, E_tail=4.236766088313e-07, E_quad=4.165909380817e-04, E_spec=4.547473508865e-13, E_num=2.120457307045e-07, E_total=4.172266608760e-04, Q_lower_bound=2.120456889818e+03, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.25,T0=0.0,N=100
+  H=0.25, T0=0, N=100, L=1.5 | Q_trunc=4.661130630380e+03, F_floor=4.474168455272e+03, E_tail=8.349086273081e-07, E_quad=9.216207991588e-04, E_spec=0.000000000000e+00, E_num=4.661130630380e-07, E_total=9.229218208492e-04, Q_lower_bound=4.661129707458e+03, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.25,T0=0.0,N=200
+  H=0.25, T0=0, N=200, L=1.5 | Q_trunc=9.920375468960e+03, F_floor=9.452258916523e+03, E_tail=1.663051614116e-06, E_quad=1.973851260953e-03, E_spec=0.000000000000e+00, E_num=9.920375468960e-07, E_total=1.976506350114e-03, Q_lower_bound=9.920373492454e+03, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.25,T0=0.0,N=500
+  H=0.25, T0=0, N=500, L=1.5 | Q_trunc=2.610364260151e+04, F_floor=2.466631932160e+04, E_tail=4.126233269230e-06, E_quad=5.234000030620e-03, E_spec=0.000000000000e+00, E_num=2.610364260151e-06, E_total=5.240736628150e-03, Q_lower_bound=2.610363736078e+04, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.25,T0=0.0,N=1000
+  H=0.25, T0=0, N=1000, L=1.5 | Q_trunc=5.346885488363e+04, F_floor=5.027076539911e+04, E_tail=8.222600282007e-06, E_quad=1.077665126409e-02, E_spec=0.000000000000e+00, E_num=5.346885488363e-06, E_total=1.079022074986e-02, Q_lower_bound=5.346884409341e+04, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.25,T0=10.0,N=20
+  H=0.25, T0=10, N=20, L=1.5 | Q_trunc=7.305149589206e+01, F_floor=7.302377304888e+01, E_tail=1.025087457584e-07, E_quad=1.408462363175e-05, E_spec=0.000000000000e+00, E_num=7.305149589206e-09, E_total=1.419443752710e-05, Q_lower_bound=7.305148169762e+01, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.25,T0=10.0,N=50
+  H=0.25, T0=10, N=50, L=1.5 | Q_trunc=7.827182406685e+01, F_floor=7.770025399067e+01, E_tail=1.053155192207e-07, E_quad=1.533718321875e-05, E_spec=1.421085471520e-14, E_num=7.827182406685e-09, E_total=1.545032593459e-05, Q_lower_bound=7.827180861653e+01, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.25,T0=10.0,N=100
+  H=0.25, T0=10, N=100, L=1.5 | Q_trunc=8.033812844296e+01, F_floor=7.924607478066e+01, E_tail=1.053045192204e-07, E_quad=1.564309237996e-05, E_spec=1.421085471520e-14, E_num=8.033812844296e-09, E_total=1.575643072624e-05, Q_lower_bound=8.033811268653e+01, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.25,T0=10.0,N=200
+  H=0.25, T0=10, N=200, L=1.5 | Q_trunc=8.134950893214e+01, F_floor=7.981047569849e+01, E_tail=1.053653938923e-07, E_quad=1.598609092300e-05, E_spec=0.000000000000e+00, E_num=8.134950893214e-09, E_total=1.609959126779e-05, Q_lower_bound=8.134949283255e+01, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.25,T0=10.0,N=500
+  H=0.25, T0=10, N=500, L=1.5 | Q_trunc=6.979894980161e+01, F_floor=7.221839305172e+01, E_tail=1.063406420069e-07, E_quad=1.668914113832e-05, E_spec=0.000000000000e+00, E_num=6.979894980161e-09, E_total=1.680246167531e-05, Q_lower_bound=6.979893299915e+01, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.25,T0=10.0,N=1000
+  H=0.25, T0=10, N=1000, L=1.5 | Q_trunc=7.081126116219e+01, F_floor=7.330829828777e+01, E_tail=1.072220367461e-07, E_quad=1.768904600942e-05, E_spec=1.421085471520e-14, E_num=7.081126116219e-09, E_total=1.780334918649e-05, Q_lower_bound=7.081124335884e+01, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.25,T0=50.0,N=20
+  H=0.25, T0=50, N=20, L=1.5 | Q_trunc=8.820521584587e+00, F_floor=1.014517713328e+01, E_tail=5.206292009999e-07, E_quad=1.696623224336e-05, E_spec=3.552713678801e-15, E_num=8.820521584587e-10, E_total=1.748774350007e-05, Q_lower_bound=8.820504096843e+00, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.25,T0=50.0,N=50
+  H=0.25, T0=50, N=50, L=1.5 | Q_trunc=5.604905732909e+00, F_floor=7.709404413611e+00, E_tail=6.366813267486e-07, E_quad=2.433437212697e-05, E_spec=4.440892098501e-15, E_num=5.604905732909e-10, E_total=2.497161394873e-05, Q_lower_bound=5.604880761295e+00, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.25,T0=50.0,N=100
+  H=0.25, T0=50, N=100, L=1.5 | Q_trunc=5.411936245608e+00, F_floor=7.765857961323e+00, E_tail=6.571149527802e-07, E_quad=2.537613503389e-05, E_spec=3.552713678801e-15, E_num=5.411936245608e-10, E_total=2.603379118385e-05, Q_lower_bound=5.411910211817e+00, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.25,T0=50.0,N=200
+  H=0.25, T0=50, N=200, L=1.5 | Q_trunc=5.372488215339e+00, F_floor=7.617652985566e+00, E_tail=6.623093356708e-07, E_quad=2.603524736201e-05, E_spec=4.440892098501e-15, E_num=5.372488215339e-10, E_total=2.669809395094e-05, Q_lower_bound=5.372461517245e+00, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.25,T0=50.0,N=500
+  H=0.25, T0=50, N=500, L=1.5 | Q_trunc=5.002185204352e+00, F_floor=7.447064572173e+00, E_tail=6.642298408416e-07, E_quad=2.596869036169e-05, E_spec=4.440892098501e-15, E_num=5.002185204352e-10, E_total=2.663342042549e-05, Q_lower_bound=5.002158570932e+00, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.25,T0=50.0,N=1000
+  H=0.25, T0=50, N=1000, L=1.5 | Q_trunc=5.902415454470e+00, F_floor=8.069344477414e+00, E_tail=6.643961015059e-07, E_quad=2.552983777767e-05, E_spec=4.440892098501e-15, E_num=5.902415454470e-10, E_total=2.619482412517e-05, Q_lower_bound=5.902389259646e+00, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.25,T0=100.0,N=20
+  H=0.25, T0=100, N=20, L=1.5 | Q_trunc=8.586632365485e+01, F_floor=8.361043775903e+01, E_tail=1.801570254128e-07, E_quad=1.695820630725e-05, E_spec=2.842170943040e-14, E_num=8.586632365485e-09, E_total=1.714694999345e-05, Q_lower_bound=8.586630650790e+01, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.25,T0=100.0,N=50
+  H=0.25, T0=100, N=50, L=1.5 | Q_trunc=1.777929844902e+02, F_floor=1.700662569327e+02, E_tail=3.011116442189e-07, E_quad=3.536831802230e-05, E_spec=8.526512829121e-14, E_num=1.777929844902e-08, E_total=3.568720905024e-05, Q_lower_bound=1.777929488030e+02, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.25,T0=100.0,N=100
+  H=0.25, T0=100, N=100, L=1.5 | Q_trunc=2.116515674761e+02, F_floor=2.022128441622e+02, E_tail=3.444549016308e-07, E_quad=4.212499300064e-05, E_spec=8.526512829121e-14, E_num=2.116515674761e-08, E_total=4.249061314429e-05, Q_lower_bound=2.116515249855e+02, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.25,T0=100.0,N=200
+  H=0.25, T0=100, N=200, L=1.5 | Q_trunc=2.219789194353e+02, F_floor=2.119948482391e+02, E_tail=3.581644071937e-07, E_quad=4.418325854833e-05, E_spec=5.684341886081e-14, E_num=2.219789194353e-08, E_total=4.456362090432e-05, Q_lower_bound=2.219788748717e+02, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.25,T0=100.0,N=500
+  H=0.25, T0=100, N=500, L=1.5 | Q_trunc=2.233859291788e+02, F_floor=2.136204614251e+02, E_tail=3.615371571156e-07, E_quad=4.452668989299e-05, E_spec=8.526512829121e-14, E_num=2.233859291788e-08, E_total=4.491056572829e-05, Q_lower_bound=2.233858842682e+02, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.25,T0=100.0,N=1000
+  H=0.25, T0=100, N=1000, L=1.5 | Q_trunc=2.238396936178e+02, F_floor=2.140903083927e+02, E_tail=3.624031980429e-07, E_quad=4.468072028927e-05, E_spec=5.684341886081e-14, E_num=2.238396936178e-08, E_total=4.506550751352e-05, Q_lower_bound=2.238396485523e+02, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.25,T0=-50.0,N=20
+  H=0.25, T0=-50, N=20, L=1.5 | Q_trunc=8.820521584587e+00, F_floor=1.014517713328e+01, E_tail=5.206292009999e-07, E_quad=1.696623224336e-05, E_spec=3.552713678801e-15, E_num=8.820521584587e-10, E_total=1.748774350007e-05, Q_lower_bound=8.820504096843e+00, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.25,T0=-50.0,N=50
+  H=0.25, T0=-50, N=50, L=1.5 | Q_trunc=5.604905732909e+00, F_floor=7.709404413611e+00, E_tail=6.366813267486e-07, E_quad=2.433437212697e-05, E_spec=4.440892098501e-15, E_num=5.604905732909e-10, E_total=2.497161394873e-05, Q_lower_bound=5.604880761295e+00, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.25,T0=-50.0,N=100
+  H=0.25, T0=-50, N=100, L=1.5 | Q_trunc=5.411936245608e+00, F_floor=7.765857961323e+00, E_tail=6.571149527802e-07, E_quad=2.537613503389e-05, E_spec=3.552713678801e-15, E_num=5.411936245608e-10, E_total=2.603379118385e-05, Q_lower_bound=5.411910211817e+00, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.25,T0=-50.0,N=200
+  H=0.25, T0=-50, N=200, L=1.5 | Q_trunc=5.372488215339e+00, F_floor=7.617652985566e+00, E_tail=6.623093356708e-07, E_quad=2.603524736201e-05, E_spec=4.440892098501e-15, E_num=5.372488215339e-10, E_total=2.669809395094e-05, Q_lower_bound=5.372461517245e+00, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.25,T0=-50.0,N=500
+  H=0.25, T0=-50, N=500, L=1.5 | Q_trunc=5.002185204352e+00, F_floor=7.447064572173e+00, E_tail=6.642298408416e-07, E_quad=2.596869036169e-05, E_spec=4.440892098501e-15, E_num=5.002185204352e-10, E_total=2.663342042549e-05, Q_lower_bound=5.002158570932e+00, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.25,T0=-50.0,N=1000
+  H=0.25, T0=-50, N=1000, L=1.5 | Q_trunc=5.902415454470e+00, F_floor=8.069344477414e+00, E_tail=6.643961015059e-07, E_quad=2.552983777767e-05, E_spec=4.440892098501e-15, E_num=5.902415454470e-10, E_total=2.619482412517e-05, Q_lower_bound=5.902389259646e+00, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.25,T0=-100.0,N=20
+  H=0.25, T0=-100, N=20, L=1.5 | Q_trunc=8.586632365485e+01, F_floor=8.361043775903e+01, E_tail=1.801570254128e-07, E_quad=1.695820630725e-05, E_spec=2.842170943040e-14, E_num=8.586632365485e-09, E_total=1.714694999345e-05, Q_lower_bound=8.586630650790e+01, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.25,T0=-100.0,N=50
+  H=0.25, T0=-100, N=50, L=1.5 | Q_trunc=1.777929844902e+02, F_floor=1.700662569327e+02, E_tail=3.011116442189e-07, E_quad=3.536831802230e-05, E_spec=8.526512829121e-14, E_num=1.777929844902e-08, E_total=3.568720905024e-05, Q_lower_bound=1.777929488030e+02, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.25,T0=-100.0,N=100
+  H=0.25, T0=-100, N=100, L=1.5 | Q_trunc=2.116515674761e+02, F_floor=2.022128441622e+02, E_tail=3.444549016308e-07, E_quad=4.212499300064e-05, E_spec=8.526512829121e-14, E_num=2.116515674761e-08, E_total=4.249061314429e-05, Q_lower_bound=2.116515249855e+02, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.25,T0=-100.0,N=200
+  H=0.25, T0=-100, N=200, L=1.5 | Q_trunc=2.219789194353e+02, F_floor=2.119948482391e+02, E_tail=3.581644071937e-07, E_quad=4.418325854833e-05, E_spec=5.684341886081e-14, E_num=2.219789194353e-08, E_total=4.456362090432e-05, Q_lower_bound=2.219788748717e+02, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.25,T0=-100.0,N=500
+  H=0.25, T0=-100, N=500, L=1.5 | Q_trunc=2.233859291788e+02, F_floor=2.136204614251e+02, E_tail=3.615371571156e-07, E_quad=4.452668989299e-05, E_spec=8.526512829121e-14, E_num=2.233859291788e-08, E_total=4.491056572829e-05, Q_lower_bound=2.233858842682e+02, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.25,T0=-100.0,N=1000
+  H=0.25, T0=-100, N=1000, L=1.5 | Q_trunc=2.238396936178e+02, F_floor=2.140903083927e+02, E_tail=3.624031980429e-07, E_quad=4.468072028927e-05, E_spec=5.684341886081e-14, E_num=2.238396936178e-08, E_total=4.506550751352e-05, Q_lower_bound=2.238396485523e+02, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.5,T0=0.0,N=20
+  H=0.5, T0=0, N=20, L=3 | Q_trunc=3.302772843069e+02, F_floor=3.067412937158e+02, E_tail=5.549632952858e-08, E_quad=2.684881120319e-04, E_spec=0.000000000000e+00, E_num=3.302772843069e-08, E_total=2.685766360898e-04, Q_lower_bound=3.302770157303e+02, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.5,T0=0.0,N=50
+  H=0.5, T0=0, N=50, L=3 | Q_trunc=9.955130500647e+02, F_floor=8.986378701162e+02, E_tail=5.679528123562e-08, E_quad=8.331756096383e-04, E_spec=1.136868377216e-13, E_num=9.955130500647e-08, E_total=8.333319563383e-04, Q_lower_bound=9.955122167328e+02, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.5,T0=0.0,N=100
+  H=0.5, T0=0, N=100, L=3 | Q_trunc=2.155245750264e+03, F_floor=1.911968588941e+03, E_tail=5.691117184929e-08, E_quad=1.843223714843e-03, E_spec=0.000000000000e+00, E_num=2.155245750264e-07, E_total=1.843496150590e-03, Q_lower_bound=2.155243906768e+03, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.5,T0=0.0,N=200
+  H=0.5, T0=0, N=200, L=3 | Q_trunc=4.524361339895e+03, F_floor=3.960194875038e+03, E_tail=5.694250026141e-08, E_quad=3.947655583173e-03, E_spec=0.000000000000e+00, E_num=4.524361339895e-07, E_total=3.948164961807e-03, Q_lower_bound=4.524357391730e+03, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.5,T0=0.0,N=500
+  H=0.5, T0=0, N=500, L=3 | Q_trunc=1.172574511415e+04, F_floor=1.013890520832e+04, E_tail=1.089564917141e-07, E_quad=1.046784655035e-02, E_spec=0.000000000000e+00, E_num=1.172574511415e-06, E_total=1.046912808136e-02, Q_lower_bound=1.172573464503e+04, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.5,T0=0.0,N=1000
+  H=0.5, T0=0, N=1000, L=3 | Q_trunc=2.380229857361e+04, F_floor=2.045920324510e+04, E_tail=2.089069398818e-07, E_quad=2.155294468340e-02, E_spec=0.000000000000e+00, E_num=2.380229857361e-06, E_total=2.155553382020e-02, Q_lower_bound=2.380227701808e+04, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.5,T0=10.0,N=20
+  H=0.5, T0=10, N=20, L=3 | Q_trunc=3.649338469203e+01, F_floor=3.629288334275e+01, E_tail=1.757964951500e-07, E_quad=2.816924395803e-05, E_spec=0.000000000000e+00, E_num=3.649338469203e-09, E_total=2.834868979165e-05, Q_lower_bound=3.649335634334e+01, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.5,T0=10.0,N=50
+  H=0.5, T0=10, N=50, L=3 | Q_trunc=3.860539969054e+01, F_floor=3.789589906566e+01, E_tail=3.853507470837e-07, E_quad=3.067437888835e-05, E_spec=0.000000000000e+00, E_num=3.860539969054e-09, E_total=3.106359017540e-05, Q_lower_bound=3.860536862695e+01, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.5,T0=10.0,N=100
+  H=0.5, T0=10, N=100, L=3 | Q_trunc=3.918056521428e+01, F_floor=3.818320536208e+01, E_tail=7.425270369399e-07, E_quad=3.128608063758e-05, E_spec=7.105427357601e-15, E_num=3.918056521428e-09, E_total=3.203252573815e-05, Q_lower_bound=3.918053318176e+01, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.5,T0=10.0,N=200
+  H=0.5, T0=10, N=200, L=3 | Q_trunc=3.931229550896e+01, F_floor=3.820383076023e+01, E_tail=1.469031243444e-06, E_quad=3.197219041196e-05, E_spec=7.105427357601e-15, E_num=3.931229550896e-09, E_total=3.344515289206e-05, Q_lower_bound=3.931226206381e+01, spec_status=full_spec_check
+[OK] XI_RigorousSingle::H=0.5,T0=10.0,N=500
+  H=0.5, T0=10, N=500, L=3 | Q_trunc=3.691634387825e+01, F_floor=3.747074228166e+01, E_tail=3.656886324093e-06, E_quad=3.337790077412e-05, E_spec=7.105427357601e-15, E_num=3.691634387825e-09, E_total=3.703847873971e-05, Q_lower_bound=3.691630683978e+01, spec_status=full_spec_check
