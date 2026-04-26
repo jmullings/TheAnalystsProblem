@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 r"""
-THE ANALYST'S PROBLEM — A HILBERT–PÓLYA OPERATOR
+THE ANALYST'S PROBLEM — A HILBERT–PÓLYA CANDIDATE OPERATOR
 ======================================================================
 
 VOLUME I: ARITHMETIC SECH-RESONANT HPO AND VALIDATION SUITE
