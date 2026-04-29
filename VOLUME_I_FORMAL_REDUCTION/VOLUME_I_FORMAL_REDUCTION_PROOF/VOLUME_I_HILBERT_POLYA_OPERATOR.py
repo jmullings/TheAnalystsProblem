@@ -4,8 +4,7 @@ r"""
 THE ANALYST'S PROBLEM — A HILBERT–PÓLYA CANDIDATE OPERATOR
 ======================================================================
 
-VOLUME I: ARITHMETIC SECH-RESONANT HPO AND VALIDATION SUITE
------------------------------------------------------------
+VOLUME I: ARITHMETIC SECH-RESONANT HPO AND VALIDATION SUITE (PRODUCTION)
 
 Canonical master equation (finite-N, ℓ²({1,…,N}) formulation)
 -------------------------------------------------------------
@@ -14,7 +13,9 @@ Canonical master equation (finite-N, ℓ²({1,…,N}) formulation)
     =
     D_N
     +
-    ∑_{m,n=1}^N 𝒦_{m,n} |m⟩⟨n|
+    K_N^{\text{arith}}
+    +
+    K_N^{\text{prime}}
     +
     γ R_N
     −
@@ -22,55 +23,30 @@ Canonical master equation (finite-N, ℓ²({1,…,N}) formulation)
 
 where
 
-    𝒦_{m,n}
-      =
-      [SECH^p backbone]
-      +
-      [prime-resonance modulation]
+    K_N^{\text{arith}} = [resonance–tuned SECH^p backbone],
+    K_N^{\text{prime}} = [explicit-formula-inspired prime kernel],
 
-is given concretely by
+and
 
-    𝒦_{m,n}
-      =
-      √(ε_m Λ(m) ε_n Λ(n)) / √(mn) · sech^p( (log m − log n) / Ω_{m,n} )
-      +
-      (ε_prime / log(t_m t_n))
-      ∑_{p ≤ P_max(N)} (log p / √p) cos(t_m log p) cos(t_n log p),
+    δ_N      = (1/N) Tr( D_N + K_N^{\text{arith}} + K_N^{\text{prime}} ),
+    D_N      = diag(t_1,…,t_N) from inverting the Riemann–von Mangoldt N(T),
+    t_n      ≈ height of the n-th zeta zero (heuristic, but zero-free),
+    γ R_N    = small random GUE-like perturbation (optional).
 
-with
+Key design constraints:
 
-    Ω_n      = max{ Ω_min , Ω_base log(t_n + e + 1) },
-    Ω_{m,n}  = (Ω_m + Ω_n)/2,
-    ε_n      = ε_0 / log(t_n + c),
-    δ_N      = (1/N) Tr( D_N + ∑_{m,n} 𝒦_{m,n} ),
+  • Self-adjointness at each finite N (machine-precision symmetry).
+  • Arithmetic backbone driven by the von Mangoldt function Λ(n).
+  • Prime-resonance kernel implementing an explicit-formula-like structure
+    using only primes, no Riemann zeros.
+  • Anti-circularity: Zeros only appear in diagnostics, never in H_N itself.
+  • Full validation suite: linearity, boundedness, Hilbert–Schmidt, real
+    spectrum, block functional symmetry, GUE spacing tests, explicit-formula
+    trace hooks, Berry–Keating unfolding, and resolvent-based limit heuristics.
 
-and D_N = diag(t_1,…,t_N) obtained from inverting the Riemann–von Mangoldt
-counting function N(T) for each index n.
-
-This script implements the above operator in matrix form, together with a
-production-grade validation suite:
-
-  • A1–A5: Linearity, boundedness, adjoint consistency, Hilbert–Schmidt,
-           real spectrum.
-
-  • Block functional-equation symmetry (V3/V6) and orthogonality (V8).
-
-  • GUE diagnostics: KS test vs Wigner surmise, spacing-ratio statistics.
-
-  • Explicit-formula hooks: Tr(e^{i τ H}) and smoothed Gaussian traces vs
-    prime-side explicit sums, with tail-error estimates.
-
-  • Riemann zero CDF comparisons and Berry–Keating unfolding tests.
-
-  • Strong-resolvent convergence heuristics across an N-ladder and z-grid.
-
-  • Parameter-stability diagnostics (γ fade-out, Ω scaling, limit stability).
-
-  • Anti-circularity guard preventing reuse of zeros in the operator itself.
-
-The construction is a numerical, arithmetic-plus-chaos model: it is designed
-to approximate the spectral features of the Riemann zeros, not to constitute
-a proven Hilbert–Pólya operator in the strict analytic sense.
+This construction is a bona fide numerical HPO candidate: it is intended to be
+research-grade and structurally aligned with Hilbert–Pólya expectations, but
+it does *not* constitute a proof of the Riemann hypothesis.
 """
 
 
@@ -94,16 +70,16 @@ MAX_N = 8000
 EPSILON_COUPLING = 0.12         # base ε_0 for resonance-tuned SECH kernel
 EPS_T_SHIFT      = 2.0
 
-SECH_POWER       = 2.0          # default: sech^2 kernel
-SECH_OMEGA_BASE  = 80.0         # broad kernel for mixing
-SECH_OMEGA_MIN   = 2.0          # Ω_min floor to avoid delta-collapse
+SECH_POWER       = 6.0          # upgraded: sech^6 kernel for sharper localization
+SECH_OMEGA_BASE  = 40.0         # slightly tighter kernel for controlled mixing
+SECH_OMEGA_MIN   = 1.5          # Ω_min floor to avoid delta-collapse
 
 # Prime-resonance kernel parameters
 P_MAX_DEFAULT    = 229          # reference base cutoff for N≈400
 EPSILON_PRIME    = 0.08         # prime kernel coupling
 
 # Random GUE-perturbation parameters
-GAMMA_GUE        = 0.05         # relative scale of random perturbation
+GAMMA_GUE        = 0.02         # reduced random scale: arithmetic chaos dominates
 RNG_SEED_GUE     = 20260426
 
 # Test dimensions
@@ -118,7 +94,9 @@ _rng = np.random.default_rng(271828)
 
 def sech(x: np.ndarray) -> np.ndarray:
     x = np.asarray(x, dtype=float)
-    return 2.0 / (np.exp(x) + np.exp(-x))
+    # Safe implementation to avoid over/underflow at large |x|
+    x_clipped = np.clip(x, -40.0, 40.0)
+    return 2.0 / (np.exp(x_clipped) + np.exp(-x_clipped))
 
 
 # ============================================================
@@ -188,7 +166,7 @@ def arithmetic_level(n: int, N: int) -> float:
     if n <= 0:
         return 0.0
     t = 2.0 * math.pi * n / max(math.log(float(n) + 1.0), 1.0)
-    for _ in range(8):
+    for _ in range(10):
         if t <= 0:
             t = float(n)
             break
@@ -216,12 +194,12 @@ def build_arithmetic_kernel_sech(
     Omega_base: float = SECH_OMEGA_BASE,
     Omega_min: float = SECH_OMEGA_MIN,
 ) -> np.ndarray:
-    """
+    r"""
     Base SECH^p arithmetic kernel:
 
         K_base(m,n)
           =
-          √(Λ(m) Λ(n)) / √(m n) · sech^p( (log m − log n) / Ω_{m,n} )
+          √(Λ(m) Λ(n)) / √(m n) · sech^p( (log m − log n) / Ω_{m,n} ).
     """
     n = np.arange(1, N + 1, dtype=float)
     log_n = np.log(n)
@@ -248,7 +226,7 @@ def build_resonance_tuned_kernel(
     K_base: np.ndarray,
     epsilon0: float = EPSILON_COUPLING,
 ) -> np.ndarray:
-    """
+    r"""
     Resonance tuning:
 
         ε_n = ε_0 / log(t_n + c),
@@ -264,7 +242,7 @@ def build_resonance_tuned_kernel(
 
 
 # ============================================================
-# PRIME–RESONANCE KERNEL
+# EXPLICIT-FORMULA-INSPIRED PRIME–RESONANCE KERNEL
 # ============================================================
 
 def build_prime_kernel(
@@ -272,39 +250,64 @@ def build_prime_kernel(
     primes: np.ndarray,
     eps: float = EPSILON_PRIME,
     use_density_weight: bool = True,
+    sigma_exp: float = 0.5,
 ) -> np.ndarray:
     r"""
-    Prime-resonance kernel with optional spectral-density normalization:
+    Explicit-formula-inspired prime-resonance kernel:
 
         K_prime(m,n)
           =
-          ε_prime ∑_{p≤P_max} (log p / √p) cos(t_m log p) cos(t_n log p),
+          ε_prime ∑_{p≤P_max} (log p / p^{σ_exp})
+          w_m(p) w_n(p) cos((t_m - t_n) log p),
 
-    optionally modified to
+    with log-window weights
 
-          / log(t_m t_n)
+        w_m(p) = sech^2( α (log p - log t_m) ),
 
-    to damp high-energy modes and approximate local spectral density.
+    and optional spectral-density weight 1/log(t_m t_n) to damp high-energy
+    modes. This is a symmetric, prime-only, nonlocal kernel.
     """
     N = len(t_n)
     Kp = np.zeros((N, N), dtype=float)
+    t = np.asarray(t_n, dtype=float)
+    p_arr = np.asarray(primes, dtype=float)
+    logp_arr = np.log(p_arr)
 
     # Spectral-density weight 1/log(t_m t_n)
     if use_density_weight:
-        log_t = np.log(t_n + 1.0)
+        log_t = np.log(t + 1.0)
         w_spec = 1.0 / (log_t[:, None] * log_t[None, :])
     else:
         w_spec = 1.0
 
-    for p in primes:
-        logp = math.log(p)
-        weight = logp / math.sqrt(p)
-        cos_vals = np.cos(t_n * logp)
-        outer = np.outer(cos_vals, cos_vals)
-        Kp += weight * (outer * w_spec)
+    alpha_log = 0.4
+    # Precompute weights w_m(p) for all m,p
+    W = np.zeros((N, p_arr.size), dtype=float)
+    for i, T in enumerate(t):
+        mu_T = math.log(max(T, 2.0))
+        W[i, :] = sech(alpha_log * (logp_arr - mu_T)) ** 2
+
+    # Coefficients Λ-like: log p / p^{σ_exp}
+    coeff = logp_arr / (p_arr ** sigma_exp)
+
+    for idx_p in range(p_arr.size):
+        c_p = coeff[idx_p]
+        w_col = W[:, idx_p]
+        outer = np.outer(w_col, w_col)
+        # Oscillatory factor cos((t_m - t_n) log p)
+        logp = logp_arr[idx_p]
+        phase_mat = np.subtract.outer(t, t) * logp
+        osc = np.cos(phase_mat)
+        Kp += c_p * (outer * osc * w_spec)
 
     Kp *= eps
     Kp = 0.5 * (Kp + Kp.T)
+
+    # Scale to keep operator well-conditioned
+    max_abs = float(np.max(np.abs(Kp)))
+    if max_abs > 0.0:
+        Kp /= max_abs
+
     return Kp
 
 
@@ -347,8 +350,8 @@ class ChaoticHilbertPolyaOperator:
     Arithmetic SECH-resonant HPO candidate:
 
         H_N = D_N
-              + K_eff,N^(sech)
-              + K_prime,N
+              + K_N^{\text{arith}}
+              + K_N^{\text{prime}}
               + γ R_N
               − δ_N I_N (optional centering at the level of H_N).
 
@@ -392,13 +395,14 @@ class ChaoticHilbertPolyaOperator:
         else:
             self._K_eff = epsilon0 * self._K_base
 
-        # Prime-resonance kernel with density weight
+        # Prime-resonance kernel (explicit-formula-inspired)
         primes = get_primes(self.P_max)
         self._K_prime = build_prime_kernel(
             self._D_diag,
             primes,
             eps=self.epsilon_prime,
             use_density_weight=True,
+            sigma_exp=0.5,
         )
 
         # Combine deterministic components
@@ -439,22 +443,22 @@ class ChaoticHilbertPolyaOperator:
         return self._matrix @ x
 
     def spectrum(self) -> np.ndarray:
-        return np.sort(np.linalg.eigvalsh(self._matrix))
+        return np.sort(np.linalg.eigvalsh(self._matrix.astype(float)))
 
     def operator_norm(self, max_iter: int = 200) -> float:
         x = _rng.standard_normal(self.N)
         x /= np.linalg.norm(x) + 1e-15
-        norm = 0.0
+        norm_val = 0.0
         for _ in range(max_iter):
             y = self._matrix @ x
-            norm = float(np.linalg.norm(y))
-            if norm < 1e-15:
+            norm_val = float(np.linalg.norm(y))
+            if norm_val < 1e-15:
                 break
-            x = y / norm
-        return norm
+            x = y / norm_val
+        return norm_val
 
     def hilbert_schmidt_norm(self) -> float:
-        return float(math.sqrt(np.sum(self._matrix ** 2)))
+        return float(math.sqrt(np.sum(self._matrix.astype(float) ** 2)))
 
     def trace(self) -> float:
         return float(np.trace(self._matrix))
@@ -1332,7 +1336,6 @@ class AntiCircularityGuard:
         z_rounded = np.round(zeros.astype(float), 12)
         D_rounded = np.round(flat_D, 12)
         K_rounded = np.round(flat_K, 12)
-
         inter_D = np.intersect1d(D_rounded, z_rounded)
         inter_K = np.intersect1d(K_rounded, z_rounded)
         if inter_D.size > 0 or inter_K.size > 0:

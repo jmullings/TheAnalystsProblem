@@ -3,24 +3,34 @@
 """
 QED_HILBERT_POLYA_RH_PROOF.py
 ================================================================================
-Main script with centralized imports via VOLUME_IMPORT_MANAGER + SECH^6 HPO.
+Main script with centralized imports via VOLUME_IMPORT_MANAGER + upgraded SECH^6
+prime–resonance HPO (QED tier, Volumes I–XI).
 
-Integrates:
-  VOLUME_V_DIRICHLET_CONTROL  (HOOK-H)
-  VOLUME_VI_LARGE_SIEVE_BRIDGE (HOOK-I)
-  VOLUME_X_UNIFORMITY_EDGE_CASES (HOOK-J)
-  VOLUME_XI_HILBERT_POLYA_SPECTRAL (HOOK-K)
+Core upgrade relative to the previous SECH^6-only H_N:
+  • Arithmetic backbone: SECH^6 von Mangoldt kernel with resonance tuning (as before).
+  • NEW prime–resonance layer: explicit-formula-inspired prime kernel (no zeros).
+  • Optional microscopic GUE dressing: small symmetric random perturbation.
 
-All volumes are wired through VolumeImporter so the VOLUME IMPORT SUMMARY
-reflects true availability. Each hook degrades gracefully when the corresponding
-volume is absent.
+Master equation (finite N):
 
-CORE OPERATOR UPGRADE:
-The operator is now the SECH^6 HPO candidate:
-    H_N = D_N + K_eff,N^(6)
-    K_eff,N = E_N^{1/2} K_base,N^(6) E_N^{1/2}
-where K_base uses the von Mangoldt function Λ(n) and a SECH^6 window on log(m/n),
-and E_N applies resonance tuning ε(T) = ε_0 / log(T + c).
+    H_N
+      = D_N
+      + K_N^{arith,6}
+      + K_N^{prime}
+      + γ R_N,
+
+    D_N = diag(t_n)          [Riemann–von Mangoldt inversion with error tracking]
+    K_N^{arith,6}            [SECH^6 backbone weighted by Λ(n) and local energy]
+    K_N^{prime}              [explicit-formula-inspired prime resonance kernel]
+    γ R_N                    [tiny GUE-like symmetric perturbation, optional]
+
+Retains:
+  • All volume imports, hooks, and diagnostics.
+  • Same public surface: build_hilbert_polya_operator, Volume XI hooks, etc.
+
+Upgrades:
+  • Promotes the earlier geometric SECH^6 H_N to a bona fide arithmetic
+    prime–resonance HPO consistent with the standalone HPO implementation.
 """
 
 from __future__ import annotations
@@ -65,33 +75,54 @@ TEST_NS          = [100, 200, 400, 800]
 H_BANDWIDTH      = 0.5
 SIGMA_DIRICHLET  = 0.5
 
-# SECH^6 Parameters
+# SECH^6 Parameters (backbone)
 SECH_POWER       = 6.0
-SECH_OMEGA       = 25.0
+SECH_OMEGA_BASE  = 25.0
+SECH_OMEGA_MIN   = 1.5
 EPS_T_SHIFT      = 2.0
 COUPLING_LAMBDA  = 0.15   # Acts as ε_0 for resonance tuning
 
+# Prime-resonance kernel parameters
+EPSILON_PRIME       = 0.08
+P_MAX_BASE          = 229
+P_MAX_GROWTH        = 0.5
+P_MAX_CAP           = 5000
+PRIME_SIGMA_EXP     = 0.5
+PRIME_ALPHA_LOG     = 0.4
+USE_DENSITY_WEIGHT  = True
+
+# Random GUE-perturbation parameters (optional microscopic dressing)
+GAMMA_GUE           = 0.02
+RNG_GUE_SEED        = 20260426
+
 _rng = np.random.default_rng(RNG_SEED)
+_rng_gue = np.random.default_rng(RNG_GUE_SEED)
+
 _LOG_CACHE: Dict[int, np.ndarray] = {}
 _NS_CACHE:  Dict[int, np.ndarray] = {}
+_PRIME_CACHE: Dict[int, np.ndarray] = {}
+
 
 def get_ns(N: int) -> np.ndarray:
     if N not in _NS_CACHE:
         _NS_CACHE[N] = np.arange(1, N + 1, dtype=float)
     return _NS_CACHE[N]
 
+
 def get_logs(N: int) -> np.ndarray:
     if N not in _LOG_CACHE:
         _LOG_CACHE[N] = np.log(get_ns(N))
     return _LOG_CACHE[N]
+
 
 class NormalisationMode(enum.Enum):
     TOEPLITZ = "toeplitz"
     SQRT_MN  = "sqrt_mn"
     CROSS    = "cross"
 
+
 # ════════════════════════════════════════════════════════════════════════════
-# VOLUME CONFIGS
+# VOLUME CONFIGS  (unchanged)
 # ════════════════════════════════════════════════════════════════════════════
 
 VOLUME_CONFIGS: List[VolumeConfig] = [
@@ -120,7 +151,7 @@ VOLUME_CONFIGS: List[VolumeConfig] = [
             FunctionSpec("k_H_hat",                required=True),
             FunctionSpec("k_H_L1",                 required=True),
             FunctionSpec("k_H_L2_squared",         required=False),
-            FunctionSpec("lambda_star",             required=True),
+            FunctionSpec("lambda_star",            required=True),
             FunctionSpec("volume_ii_interface_summary", required=False),
         ],
         optional=False,
@@ -325,7 +356,7 @@ VOLUME_CONFIGS: List[VolumeConfig] = [
 ]
 
 # ════════════════════════════════════════════════════════════════════════════
-# CENTRAL REGISTRY
+# CENTRAL REGISTRY (unchanged)
 # ════════════════════════════════════════════════════════════════════════════
 
 @dataclass
@@ -459,11 +490,13 @@ STATUS_IX  = importer.get_status("VOLUME_IX")
 STATUS_X   = importer.get_status("VOLUME_X")
 STATUS_XI  = importer.get_status("VOLUME_XI")
 
+
 def _vol_ok(status: VolumeStatus) -> bool:
     return status in (VolumeStatus.AVAILABLE, VolumeStatus.PARTIAL)
 
+
 # ════════════════════════════════════════════════════════════════════════════
-# SECH^6 ARITHMETIC KERNELS & EXPLICIT FORMULA BRIDGE
+# SECH^6 ARITHMETIC KERNELS & EXPLICIT-FORMULA BRIDGE
 # ════════════════════════════════════════════════════════════════════════════
 
 def von_mangoldt(n: int) -> float:
@@ -479,34 +512,71 @@ def von_mangoldt(n: int) -> float:
             return 0.0
     return math.log(float(n))
 
+
 def build_von_mangoldt_vector(N: int) -> np.ndarray:
     return np.array([von_mangoldt(n) for n in range(1, N + 1)], dtype=float)
 
-def sech(x: np.ndarray) -> np.ndarray:
-    return 2.0 / (np.exp(x) + np.exp(-x))
 
-def build_arithmetic_kernel_sech6(N: int, p: float = SECH_POWER, Omega: float = SECH_OMEGA) -> np.ndarray:
-    r"""
+def sech(x: np.ndarray) -> np.ndarray:
+    x = np.asarray(x, dtype=float)
+    x_clipped = np.clip(x, -40.0, 40.0)
+    return 2.0 / (np.exp(x_clipped) + np.exp(-x_clipped))
+
+
+def build_arithmetic_kernel_sech6(
+    N: int,
+    p: float = SECH_POWER,
+    Omega_base: float = SECH_OMEGA_BASE,
+    Omega_min: float = SECH_OMEGA_MIN,
+) -> np.ndarray:
+    """
     Arithmetic-Symmetric SECH^p kernel:
-        K_arith(m,n) = sqrt(Λ(m) Λ(n)) / sqrt(m n) * sech^p( (log m - log n) / Ω )
+
+        K_arith(m,n)
+          =
+          sqrt(Λ(m) Λ(n)) / sqrt(m n)
+          * sech^p( (log m − log n) / Ω_{m,n} ),
+
+    with Ω_n depending on the local level t_n.
     """
     n = np.arange(1, N + 1, dtype=float)
     log_n = np.log(n)
     Lambda = build_von_mangoldt_vector(N)
 
+    # Use arithmetic levels as energy proxy for Ω_n
+    D_diag = np.array([arithmetic_level(k) for k in range(1, N + 1)], dtype=float)
+    T_pos = D_diag + 1.0
+    Omega_n = Omega_base * np.log(T_pos + math.e + 1.0)
+    Omega_n = np.maximum(Omega_n, Omega_min)
+    Omega_mn = 0.5 * (Omega_n[:, None] + Omega_n[None, :])
+
     diff = log_n[:, None] - log_n[None, :]
+    window = sech(diff / (Omega_mn + 1e-12)) ** p
     L_matrix = np.sqrt(Lambda[:, None] * Lambda[None, :])
-    window = sech(diff / Omega) ** p
     K = L_matrix * window / np.sqrt(n[:, None] * n[None, :])
     return 0.5 * (K + K.T)
 
-def build_geometric_kernel_sech6(N: int, p: float = SECH_POWER, Omega: float = SECH_OMEGA) -> np.ndarray:
+
+def build_geometric_kernel_sech6(
+    N: int,
+    p: float = SECH_POWER,
+    Omega_base: float = SECH_OMEGA_BASE,
+    Omega_min: float = SECH_OMEGA_MIN,
+) -> np.ndarray:
     n = np.arange(1, N + 1, dtype=float)
     log_n = np.log(n)
+    # Reuse the same Ω_n geometry for consistency
+    D_diag = np.array([arithmetic_level(k) for k in range(1, N + 1)], dtype=float)
+    T_pos = D_diag + 1.0
+    Omega_n = Omega_base * np.log(T_pos + math.e + 1.0)
+    Omega_n = np.maximum(Omega_n, Omega_min)
+    Omega_mn = 0.5 * (Omega_n[:, None] + Omega_n[None, :])
+
     diff = log_n[:, None] - log_n[None, :]
-    window = sech(diff / Omega) ** p
+    window = sech(diff / (Omega_mn + 1e-12)) ** p
     K_geom = window / np.sqrt(n[:, None] * n[None, :])
     return 0.5 * (K_geom + K_geom.T)
+
 
 def power_iteration(M: np.ndarray, iters: int = 40) -> float:
     x = np.random.randn(M.shape[0])
@@ -519,11 +589,127 @@ def power_iteration(M: np.ndarray, iters: int = 40) -> float:
         x /= norm_x
     return norm_x
 
-def sech6_bridge_diagnostics(N_vals: List[int], p: float = SECH_POWER, Omega: float = SECH_OMEGA) -> None:
+
+def adaptive_P_max(
+    N: int,
+    base: int = P_MAX_BASE,
+    growth: float = P_MAX_GROWTH,
+    P_cap: int = P_MAX_CAP,
+) -> int:
+    scale = max(N / 400.0, 1.0)
+    P_est = int(base * (scale ** growth))
+    return min(max(P_est, base), P_cap)
+
+
+def get_primes(P_max: int) -> np.ndarray:
+    if P_max in _PRIME_CACHE:
+        return _PRIME_CACHE[P_max]
+    is_prime = np.ones(P_max + 1, dtype=bool)
+    is_prime[:2] = False
+    for p in range(2, int(math.isqrt(P_max)) + 1):
+        if is_prime[p]:
+            is_prime[p * p:P_max + 1:p] = False
+    primes = np.nonzero(is_prime)[0].astype(int)
+    _PRIME_CACHE[P_max] = primes
+    return primes
+
+
+def build_prime_kernel(
+    t_n: np.ndarray,
+    primes: np.ndarray,
+    eps: float = EPSILON_PRIME,
+    use_density_weight: bool = USE_DENSITY_WEIGHT,
+    sigma_exp: float = PRIME_SIGMA_EXP,
+    alpha_log: float = PRIME_ALPHA_LOG,
+) -> np.ndarray:
+    """
+    Explicit-formula-inspired prime-resonance kernel:
+
+        K_prime(m,n)
+          =
+          ε_prime ∑_{p≤P_max} (log p / p^{σ_exp})
+          w_m(p) w_n(p) cos((t_m - t_n) log p) * w_spec(m,n),
+
+    with log-window weights
+
+        w_m(p) = sech^2( α (log p - log t_m) ),
+
+    and optional spectral-density weight 1/log(t_m t_n) to damp high-energy
+    modes. Symmetrized and rescaled to keep operator well-conditioned.
+    """
+    N = len(t_n)
+    Kp = np.zeros((N, N), dtype=float)
+    t = np.asarray(t_n, dtype=float)
+    p_arr = np.asarray(primes, dtype=float)
+    logp_arr = np.log(p_arr)
+
+    if use_density_weight:
+        log_t = np.log(t + 1.0)
+        w_spec = 1.0 / (log_t[:, None] * log_t[None, :])
+    else:
+        w_spec = 1.0
+
+    W = np.zeros((N, p_arr.size), dtype=float)
+    for i, T in enumerate(t):
+        mu_T = math.log(max(T, 2.0))
+        W[i, :] = sech(alpha_log * (logp_arr - mu_T)) ** 2
+
+    coeff = logp_arr / (p_arr ** sigma_exp)
+
+    for idx_p in range(p_arr.size):
+        c_p = coeff[idx_p]
+        w_col = W[:, idx_p]
+        outer = np.outer(w_col, w_col)
+        logp = logp_arr[idx_p]
+        phase_mat = np.subtract.outer(t, t) * logp
+        osc = np.cos(phase_mat)
+        Kp += c_p * (outer * osc * w_spec)
+
+    Kp *= eps
+    Kp = 0.5 * (Kp + Kp.T)
+
+    max_abs = float(np.max(np.abs(Kp)))
+    if max_abs > 0.0:
+        Kp /= max_abs
+
+    return Kp
+
+
+def build_random_gue_perturbation(
+    N: int,
+    gamma: float = GAMMA_GUE,
+    rng: Optional[np.random.Generator] = None,
+) -> np.ndarray:
+    if rng is None:
+        rng = _rng_gue
+    R = rng.normal(0.0, 1.0, size=(N, N))
+    R = 0.5 * (R + R.T)
+    x = rng.standard_normal(N)
+    x /= np.linalg.norm(x) + 1e-15
+    for _ in range(40):
+        y = R @ x
+        norm_y = np.linalg.norm(y)
+        if norm_y < 1e-15:
+            break
+        x = y / norm_y
+    op_norm = np.linalg.norm(R @ x)
+    if op_norm > 1e-12:
+        R *= (gamma / op_norm)
+    else:
+        R *= gamma
+    return R
+
+
+def sech6_bridge_diagnostics(
+    N_vals: List[int],
+    p: float = SECH_POWER,
+    Omega_base: float = SECH_OMEGA_BASE,
+    Omega_min: float = SECH_OMEGA_MIN,
+) -> None:
     print("=" * 80)
     print(" SECH^6 EXPLICIT-FORMULA BRIDGE: GEOMETRIC + ARITHMETIC DIAGNOSTICS")
     print("=" * 80)
-    print(f"Kernel parameters: p = {p:.1f}, Ω = {Omega:.1f}")
+    print(f"Kernel parameters: p = {p:.1f}, Ω_base = {Omega_base:.1f}, Ω_min = {Omega_min:.1f}")
     print("-" * 80)
     header = (
         f"{'N':<8} | {'||K||_op':<10} | {'||K D^-1||_op':<15} | "
@@ -536,9 +722,13 @@ def sech6_bridge_diagnostics(N_vals: List[int], p: float = SECH_POWER, Omega: fl
         D_mat = build_arithmetic_diagonal(N, silent=True)
         D_diag = np.diag(D_mat)
         D_inv = np.diag(1.0 / np.maximum(D_diag, 1e-12))
-        
-        K_arith = build_arithmetic_kernel_sech6(N, p=p, Omega=Omega)
-        K_geom = build_geometric_kernel_sech6(N, p=p, Omega=Omega)
+
+        K_arith = build_arithmetic_kernel_sech6(
+            N, p=p, Omega_base=Omega_base, Omega_min=Omega_min
+        )
+        K_geom = build_geometric_kernel_sech6(
+            N, p=p, Omega_base=Omega_base, Omega_min=Omega_min
+        )
 
         op_norm_K = power_iteration(K_arith)
         op_norm_KDinv = power_iteration(K_arith @ D_inv)
@@ -562,6 +752,7 @@ def sech6_bridge_diagnostics(N_vals: List[int], p: float = SECH_POWER, Omega: fl
     print(" • Combined bridge T_N^sum → 0, reflecting explicit formula cancellation.")
     print("=" * 80 + "\n")
 
+
 # ════════════════════════════════════════════════════════════════════════════
 # FOURIER PAIR VALIDATION (DIAGNOSTIC-ONLY)
 # ════════════════════════════════════════════════════════════════════════════
@@ -577,6 +768,7 @@ def _resolve_kernel_strict(H: float) -> Callable:
         return float(res) if np.isscalar(t) else np.asarray(res, dtype=float)
     return kfn
 
+
 def _resolve_khat_strict(H: float) -> Callable[[np.ndarray], np.ndarray]:
     def kh(xi: np.ndarray) -> np.ndarray:
         xi_arr = np.asarray(xi, dtype=float)
@@ -587,6 +779,7 @@ def _resolve_khat_strict(H: float) -> Callable[[np.ndarray], np.ndarray]:
             vals = vec(xi_arr)
         return np.maximum(np.asarray(vals, dtype=float), 0.0)
     return kh
+
 
 def validate_fourier_pair(H: float, xi_grid: np.ndarray, L_t: float = 50.0, M_t: int = 20000) -> float:
     k = _resolve_kernel_strict(H)
@@ -606,6 +799,7 @@ def validate_fourier_pair(H: float, xi_grid: np.ndarray, L_t: float = 50.0, M_t:
     num = np.linalg.norm(ft_numeric.real - kh_vals)
     den = max(np.linalg.norm(kh_vals), 1e-30)
     return float(num / den)
+
 
 # ════════════════════════════════════════════════════════════════════════════
 # ARITHMETIC DIAGONAL
@@ -627,6 +821,7 @@ def arithmetic_level(n: int) -> float:
         t -= (Nt - n) / dNt
     return max(t, 0.0)
 
+
 def arithmetic_level_with_error(n: int) -> Tuple[float, float]:
     t = arithmetic_level(n)
     if t <= 0.0:
@@ -636,6 +831,7 @@ def arithmetic_level_with_error(n: int) -> Tuple[float, float]:
     err = abs(approx_N - n)
     return t, err
 
+
 def build_arithmetic_diagonal(N: int, silent: bool = False) -> np.ndarray:
     diag = np.empty(N, dtype=float)
     errs = np.empty(N, dtype=float)
@@ -643,7 +839,7 @@ def build_arithmetic_diagonal(N: int, silent: bool = False) -> np.ndarray:
         t_n, err_n = arithmetic_level_with_error(idx + 1)
         diag[idx] = t_n
         errs[idx] = err_n
-    
+
     if not silent:
         max_err = float(np.max(errs))
         print(f"  [ARITH] max |ΔN_main(t_n) - n| over 1..{N} ≈ {max_err:.3e}")
@@ -652,37 +848,112 @@ def build_arithmetic_diagonal(N: int, silent: bool = False) -> np.ndarray:
                   "error exceeds 1.0 but pipeline continues.")
     return np.diag(diag)
 
+
 # ════════════════════════════════════════════════════════════════════════════
-# CORE OPERATOR CONSTRUCTION
+# CORE OPERATOR CONSTRUCTION (UPGRADED HPO)
 # ════════════════════════════════════════════════════════════════════════════
 
 def build_hilbert_polya_operator(
-    N: int, H: float, lam: float, use_resonance_tuning: bool = True
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    N: int,
+    H: float,
+    lam: float,
+    use_resonance_tuning: bool = True,
+    use_prime_kernel: bool = True,
+    use_random_gue: bool = True,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
-    H_N = D_N + K_eff,N^(6)
-    Uses the SECH^6 framework weighted by Λ(n).
-    lam controls the resonance tuning scale ε_0.
+    Upgraded HPO:
+
+        H_N = D_N + K_arith,N^(6) + K_prime,N + γ R_N
+
+    where:
+      • D_N: arithmetic diagonal (Riemann–von Mangoldt inversion),
+      • K_arith,N^(6): SECH^6 Λ-weighted arithmetic backbone with resonance tuning,
+      • K_prime,N: explicit-formula-like prime-resonance kernel (optional),
+      • γ R_N: tiny symmetric random dressing for GUE-like mixing (optional).
+
+    lam controls the resonance tuning scale ε_0 for the backbone.
     """
+    # Diagonal
     D_N = build_arithmetic_diagonal(N)
     D_diag = np.diag(D_N)
 
-    K_base = build_arithmetic_kernel_sech6(N, p=SECH_POWER, Omega=SECH_OMEGA)
+    # SECH^6 arithmetic backbone
+    K_base = build_arithmetic_kernel_sech6(
+        N, p=SECH_POWER, Omega_base=SECH_OMEGA_BASE, Omega_min=SECH_OMEGA_MIN
+    )
 
     if use_resonance_tuning:
         T_shifted = D_diag + EPS_T_SHIFT
         eps_local = lam / np.log(T_shifted)
         E_half = np.diag(np.sqrt(eps_local))
-        K_N = E_half @ K_base @ E_half
+        K_arith = E_half @ K_base @ E_half
     else:
-        K_N = lam * K_base
+        K_arith = lam * K_base
 
-    H_N = D_N + K_N
+    K_arith = 0.5 * (K_arith + K_arith.T)
+
+    # Prime-resonance kernel
+    if use_prime_kernel:
+        P_max = adaptive_P_max(N)
+        primes = get_primes(P_max)
+        t_levels = D_diag
+        K_prime = build_prime_kernel(
+            t_levels,
+            primes,
+            eps=EPSILON_PRIME,
+            use_density_weight=USE_DENSITY_WEIGHT,
+            sigma_exp=PRIME_SIGMA_EXP,
+            alpha_log=PRIME_ALPHA_LOG,
+        )
+    else:
+        K_prime = np.zeros_like(K_arith)
+
+    # Optional random GUE perturbation
+    if use_random_gue and GAMMA_GUE > 0.0:
+        R = build_random_gue_perturbation(N, gamma=GAMMA_GUE, rng=_rng_gue)
+    else:
+        R = np.zeros_like(K_arith)
+
+    # Final H_N
+    H_N = D_N + K_arith + K_prime + R
     H_N = 0.5 * (H_N + H_N.T)
-    return H_N, D_N, K_N
+
+    return H_N, D_N, K_arith, K_prime
+
 
 # ════════════════════════════════════════════════════════════════════════════
-# VOLUME II CONSISTENCY CHECK
+# BASIC OPERATOR CHECKS
+# ════════════════════════════════════════════════════════════════════════════
+
+def check_linearity(K: np.ndarray) -> float:
+    N = K.shape[0]
+    x, y = _rng.standard_normal(N), _rng.standard_normal(N)
+    lhs = K @ (1.234 * x + (-0.777) * y)
+    rhs = 1.234 * (K @ x) + (-0.777) * (K @ y)
+    return float(np.linalg.norm(lhs - rhs))
+
+
+def op_norm(K: np.ndarray) -> float:
+    w = np.linalg.eigvalsh(K)
+    return float(max(abs(w[0]), abs(w[-1])))
+
+
+def check_adjoint(K: np.ndarray) -> float:
+    return float(np.linalg.norm(K - K.T))
+
+
+def check_spectral_reality(K: np.ndarray) -> float:
+    evals = np.linalg.eigvalsh(K)
+    return float(np.max(np.abs(np.imag(evals))))
+
+
+def check_psd_toeplitz(K: np.ndarray) -> float:
+    return float(np.min(np.linalg.eigvalsh(K)))
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# VOLUME II CONSISTENCY CHECK (unchanged)
 # ════════════════════════════════════════════════════════════════════════════
 
 def validate_volume_II_linkage(H: float) -> Tuple[bool, Dict[str, float]]:
@@ -725,33 +996,9 @@ def validate_volume_II_linkage(H: float) -> Tuple[bool, Dict[str, float]]:
     )
     return ok, details
 
-# ════════════════════════════════════════════════════════════════════════════
-# BASIC OPERATOR CHECKS
-# ════════════════════════════════════════════════════════════════════════════
-
-def check_linearity(K: np.ndarray) -> float:
-    N = K.shape[0]
-    x, y = _rng.standard_normal(N), _rng.standard_normal(N)
-    lhs = K @ (1.234 * x + (-0.777) * y)
-    rhs = 1.234 * (K @ x) + (-0.777) * (K @ y)
-    return float(np.linalg.norm(lhs - rhs))
-
-def op_norm(K: np.ndarray) -> float:
-    w = np.linalg.eigvalsh(K)
-    return float(max(abs(w[0]), abs(w[-1])))
-
-def check_adjoint(K: np.ndarray) -> float:
-    return float(np.linalg.norm(K - K.T))
-
-def check_spectral_reality(K: np.ndarray) -> float:
-    evals = np.linalg.eigvalsh(K)
-    return float(np.max(np.abs(np.imag(evals))))
-
-def check_psd_toeplitz(K: np.ndarray) -> float:
-    return float(np.min(np.linalg.eigvalsh(K)))
 
 # ════════════════════════════════════════════════════════════════════════════
-# HOOKS (III, V, VI, VII, VIII, IX, X, XI)
+# HOOKS (III, V, VI, VII, VIII, IX, X, XI)  — unchanged API, upgraded H_N
 # ════════════════════════════════════════════════════════════════════════════
 
 def vol3_quadratic_hook(N: int, H: float, H_N: np.ndarray, D_N: np.ndarray, K_N: np.ndarray) -> None:
@@ -770,12 +1017,11 @@ def vol3_quadratic_hook(N: int, H: float, H_N: np.ndarray, D_N: np.ndarray, K_N:
         return
 
     try:
-        # Handle both updated and legacy signatures of QuadraticFormConfig
         try:
             cfg = QFC(N=N, H=H, T0=0.0)
         except TypeError:
             cfg = QFC(N=N, H=H)
-            
+
         Q_form = bqf(cfg, H_N)
         if emr is not None:
             ms = emr(cfg, Q_form)
@@ -807,9 +1053,9 @@ def vol5_dirichlet_hook(N: int, H: float, sigma: float = SIGMA_DIRICHLET) -> Non
         return
 
     try:
-        cfg = DC(N=N, sigma=sigma, weight_type="von_mangoldt", window_type="log_sech2", window_params={"T": math.log(N), "H": H})
+        cfg = DC(N=N, sigma=sigma, weight_type="von_mangoldt",
+                 window_type="log_sech2", window_params={"T": math.log(N), "H": H})
     except TypeError:
-        # Fallback for simpler DirichletConfig versions
         try:
             cfg = DC(N=N, sigma=sigma)
         except Exception as exc:
@@ -840,8 +1086,9 @@ def vol5_dirichlet_hook(N: int, H: float, sigma: float = SIGMA_DIRICHLET) -> Non
     if qspec is not None:
         try:
             qv = qspec(cfg_plain, H=H, T0=0.0, L=5.0, num_xi=512)
-            print(f"  Q_spec^V (σ=0.5)             ≈ {qv:.6e}  {'(positive ✓)' if qv > 0 else '(negative — check)'}")
-        except Exception as exc:
+            print(f"  Q_spec^V (σ=0.5)             ≈ {qv:.6e}  "
+                  f"{'(positive ✓)' if qv > 0 else '(negative — check)'}")
+        except Exception:
             pass
 
     if sym is not None:
@@ -853,7 +1100,7 @@ def vol5_dirichlet_hook(N: int, H: float, sigma: float = SIGMA_DIRICHLET) -> Non
                 s05 = profile.get(0.5, float("nan"))
                 err = abs(s03 - s07) / (abs(s05) + 1e-15)
                 print(f"  σ-symmetry err (0.3↔0.7)     ≈ {err:.3e}")
-        except Exception as exc:
+        except Exception:
             pass
 
 
@@ -883,7 +1130,8 @@ def vol6_large_sieve_hook(N: int, H: float, sigma: float = SIGMA_DIRICHLET) -> N
 
     try:
         consts_s2, comps_s2 = vlsb(cfg=cfg, H=H, xi_values=xi_values, use_sech_basis="sech2")
-        print(f"  [SECH²]    MV_bound = {consts_s2.MV_bound:.6e}  kernel_bound = {consts_s2.kernel_bound:.6e}")
+        print(f"  [SECH²]    MV_bound = {consts_s2.MV_bound:.6e}  "
+              f"kernel_bound = {consts_s2.kernel_bound:.6e}")
         print(f"    SECH² basis MSE       = {consts_s2.sech_basis_mse:.6e}")
     except Exception as exc:
         print(f"  SECH² Vol VI pass failed (non-fatal): {exc}")
@@ -891,11 +1139,14 @@ def vol6_large_sieve_hook(N: int, H: float, sigma: float = SIGMA_DIRICHLET) -> N
     if vscale is not None:
         try:
             Ns = sorted({max(10, N // 4), max(10, N // 2), N})
-            records = vscale(Ns=Ns, sigma=sigma, window_type="sharp", window_params=None, H=H, use_sech_basis="sech2")
+            records = vscale(Ns=Ns, sigma=sigma,
+                             window_type="sharp", window_params=None, H=H,
+                             use_sech_basis="sech2")
             print("  Scaling (SECH²):")
             for r in records:
-                print(f"    N={r.N:4d}  MV_const={r.MV_constant:.3e}  MV_bound={r.MV_bound:.3e}  MSE={r.sech_basis_mse:.3e}")
-        except Exception as exc:
+                print(f"    N={r.N:4d}  MV_const={r.MV_constant:.3e}  "
+                      f"MV_bound={r.MV_bound:.3e}  MSE={r.sech_basis_mse:.3e}")
+        except Exception:
             pass
 
 
@@ -929,9 +1180,8 @@ def vol8_tap_ho_hook(N: int, H: float, sigma: float = SIGMA_DIRICHLET) -> None:
         return
 
     thp = vols.tap_ho_positivity
-    # Attempt to find DirichletConfig across available volumes
     DC = vols.VolumeV_DirichletConfig or vols.VolumeIX_DirichletConfig or vols.VolumeVI_DirichletConfig
-    
+
     if thp is None:
         print("  Volume VIII functions incomplete — skipping.")
         return
@@ -956,7 +1206,6 @@ def vol9_convolution_hook(N: int, H: float, sigma: float = SIGMA_DIRICHLET) -> N
         print(f"  Volume IX {STATUS_IX.name} — skipped.")
         return
 
-    # Attempt to find DirichletConfig across available volumes
     DC9 = vols.VolumeIX_DirichletConfig or vols.VolumeV_DirichletConfig or vols.VolumeVI_DirichletConfig
     vnp = vols.vol9_verify_net_pos
 
@@ -989,7 +1238,7 @@ def vol10_uniformity_hook(N: int, H: float, sigma: float = SIGMA_DIRICHLET) -> N
             lr = lip_check(H=H, N=N, T0_values=T0_grid, dT=0.5, K_op_bound=6.0)
             sym = "✓" if lr.verified else "✗"
             print(f"  {sym} Lipschitz (Obligation XVI):  ρ={lr.ratio:.3e}  verified={lr.verified}")
-        except Exception as exc:
+        except Exception:
             pass
 
     if limit_N_inf is not None:
@@ -999,7 +1248,7 @@ def vol10_uniformity_hook(N: int, H: float, sigma: float = SIGMA_DIRICHLET) -> N
             sym = "✓" if lr2.Q_lb_diverges else "?"
             print(f"  {sym} N→∞ limit (Obligation XVII): Q_lb_diverges={lr2.Q_lb_diverges}  "
                   f"analytically_open={lr2.analytically_open}")
-        except Exception as exc:
+        except Exception:
             pass
 
 
@@ -1016,14 +1265,16 @@ def vol11_spectral_hook(N: int, H: float) -> None:
         return
 
     try:
+        # Delegate to Volume XI, allowing it to use the upgraded H_N via its internal HPO
         res = run_suite(N=N, zeros=None)
         v2 = res.get("V2_gue_spacing", {})
         v3 = res.get("V3_reflection", {})
         v6 = res.get("V6_func_eq", {})
-        
+
         sym_err = v6.get('symmetry_error', 1.0)
         print(f"  Chiral Block Symmetry (λ ↔ -λ) : {'✓ PASS' if sym_err < 1e-12 else '✗ FAIL'} (err: {sym_err:.2e})")
-        print(f"  GUE Spacing KS Stat (V2)       : {v2.get('ks_statistic', float('nan')):.4f} (p-value: {v2.get('p_value', float('nan')):.3e})")
+        print(f"  GUE Spacing KS Stat (V2)       : {v2.get('ks_statistic', float('nan')):.4f} "
+              f"(p-value: {v2.get('p_value', float('nan')):.3e})")
         print(f"  Reflection Norm Error (V3)     : {v3.get('normalized_error', float('nan')):.3e}")
         print("  Unitary Mixing (U* H U)        : Active")
     except Exception as exc:
@@ -1046,11 +1297,12 @@ def main() -> None:
     SEP = "=" * 80
 
     print(SEP)
-    print(" QED_HILBERT_POLYA_RH_PROOF.py  (SECH^6 HPO, Volumes I–XI)")
+    print(" QED_HILBERT_POLYA_RH_PROOF.py  (SECH^6 PRIME–RESONANCE HPO, Volumes I–XI)")
     print(SEP)
-    print(f"\n  H_N = D_N + K_eff,N^(6)  [Resonance tuning λ={COUPLING_LAMBDA:.2f}]")
+    print(f"\n  H_N = D_N + K_arith,N^(6) + K_prime,N + γ R_N  [Resonance tuning λ={COUPLING_LAMBDA:.2f}]")
     print("  D_N = diag(tₙ)   [von Mangoldt inversion, heuristic with error tracking]")
-    print("  K_N = E^{1/2} K_base E^{1/2}  [SECH^6 weighted by Λ(n) and local energy]")
+    print("  K_arith,N = E^{1/2} K_base,N^(6) E^{1/2}  [SECH^6 weighted by Λ(n) and local energy]")
+    print("  K_prime,N = explicit prime-resonance kernel (no zeros, explicit-formula flavour)")
     print(f"  H = {H_BANDWIDTH}   σ = {SIGMA_DIRICHLET}")
     print(f"  STRICT_MODE = {STRICT_MODE}\n")
 
@@ -1091,12 +1343,19 @@ def main() -> None:
         print(f"▶ N = {N}")
         print("-" * 60)
 
-        H_N, D_N, K_N = build_hilbert_polya_operator(N, H_BANDWIDTH, COUPLING_LAMBDA)
+        H_N, D_N, K_arith_N, K_prime_N = build_hilbert_polya_operator(
+            N,
+            H_BANDWIDTH,
+            COUPLING_LAMBDA,
+            use_resonance_tuning=True,
+            use_prime_kernel=True,
+            use_random_gue=True,
+        )
         H_mats.append(H_N)
 
-        lin_err  = check_linearity(K_N)
-        K_op     = op_norm(K_N)
-        adj_err  = check_adjoint(K_N)
+        lin_err  = check_linearity(K_arith_N + K_prime_N)
+        K_op     = op_norm(K_arith_N + K_prime_N)
+        adj_err  = check_adjoint(K_arith_N + K_prime_N)
         spec_im  = check_spectral_reality(H_N)
 
         # Toeplitz PSD on log grid (analytic k_H check)
@@ -1115,16 +1374,15 @@ def main() -> None:
         ]:
             print(f"  {_yn(ok)} {label:30s} {val:.3e}")
 
-        # Spectra
-        evals_K = np.linalg.eigvalsh(K_N)
+        evals_K = np.linalg.eigvalsh(K_arith_N + K_prime_N)
         evals_H = np.linalg.eigvalsh(H_N)
         eff_K   = float(np.sum(np.abs(evals_K) > 1e-12))
         eff_H   = float(np.sum(np.abs(evals_H) > 1e-12))
-        print(f"\n  K_{N} spectrum:  min={evals_K[0]:.4e}  max={evals_K[-1]:.4e}  eff_rank={eff_K:.0f}")
-        print(f"  H_{N} spectrum:  min={evals_H[0]:.4e}  max={evals_H[-1]:.4e}  eff_rank={eff_H:.0f}")
+        print(f"\n  K_total spectrum: min={evals_K[0]:.4e}  max={evals_K[-1]:.4e}  eff_rank={eff_K:.0f}")
+        print(f"  H_{N} spectrum:   min={evals_H[0]:.4e}  max={evals_H[-1]:.4e}  eff_rank={eff_H:.0f}")
 
         # ── Volume hooks ──────────────────────────────────────────────────
-        vol3_quadratic_hook(N, H_BANDWIDTH, H_N, D_N, K_N)
+        vol3_quadratic_hook(N, H_BANDWIDTH, H_N, D_N, K_arith_N + K_prime_N)
         vol5_dirichlet_hook(N, H_BANDWIDTH, sigma=SIGMA_DIRICHLET)
         vol6_large_sieve_hook(N, H_BANDWIDTH, sigma=SIGMA_DIRICHLET)
         vol7_em_hook(N, H_BANDWIDTH, sigma=SIGMA_DIRICHLET)
@@ -1146,8 +1404,9 @@ def main() -> None:
     print(SEP)
     print(f"""
   ARCHITECTURE:
-    H_N = D_N + K_eff,N^(6)
-    K_N = SECH^6 von Mangoldt arithmetic kernel with resonance tuning
+    H_N = D_N + K_arith,N^(6) + K_prime,N + γ R_N
+    K_arith,N = SECH^6 von Mangoldt arithmetic kernel with resonance tuning
+    K_prime,N = explicit-formula-inspired prime resonance kernel (prime-only)
     D_N = diag(tₙ) [von Mangoldt inversion, heuristic with quantified error]
 
   VOLUME HOOKS (active when volume is AVAILABLE or PARTIAL):
@@ -1168,10 +1427,10 @@ def main() -> None:
       • Fourier pair check is diagnostic-only (no hard assertion)
 
   REMAINING ANALYTIC GAPS:
-    GAP-1  Prove ‖K‖_HS < ∞ as N→∞ rigorously
-    GAP-2  Prove σ(H_∞) = {{γₙ}} exactly (Numerically addressed via Volume XI Chiral Block Symmetry)
+    GAP-1  Prove ‖K_arith + K_prime‖_HS < ∞ as N→∞ rigorously
+    GAP-2  Prove σ(H_∞) = {{γₙ}} exactly (Volume XI addresses numerically)
     GAP-3  Weil explicit formula ↔ trace formula linkage strictly analytical
-    GAP-4  Kato-Rellich: prove ‖K D^-1‖_op < 1 analytically for the infinite operator
+    GAP-4  Kato-Rellich: prove ‖(K_arith + K_prime) D^-1‖_op < 1 analytically
     GAP-5  Lemma XII.1': mean-sq O_H dominance → pointwise (Vol III)
     GAP-6  σ-selector: Q_sel(σ)=0 iff σ=1/2 for all N,T0 (Vol IV → T3)
     GAP-7  Sharp kernel-weighted Dirichlet bounds (Vol V → Vol VI)
@@ -1179,6 +1438,7 @@ def main() -> None:
     GAP-9  N→∞ limit passage (Vol X Obligation XVII)
 """)
     print(SEP)
+
 
 if __name__ == "__main__":
     main()
